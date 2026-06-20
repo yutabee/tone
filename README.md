@@ -10,16 +10,25 @@
 
 - 中央 0、±50 セントの hairline 目盛り。cents に比例して細い indicator が動く。
 - monochrome(ink / paper、light・dark 適応)+ **単一のアクセント色**。アクセントは **in-tune(|cents| ≤ 3)の瞬間だけ**現れ、音名・indicator・中央目盛りが一斉に signal 色へ「ロック」する。
+- **dark は「夜の計測器」**。上方光のグラデーションで奥行きを与え、ロックの瞬間だけ signal が emissive に灯る。boldness は in-tune の 1 点に集中させ、それ以外は monochrome の規律を保つ。increase-contrast / reduce-transparency では奥行き・発光を畳み、純粋な可読性へ倒す。
 - 丸いダイヤル / ゲージ(チューナー UI の定番)は採用しない。線形セントの方が読みやすく、より Swiss。
 - 余白主体。音名・オクターブ・セントずれ・定規・基準ピッチのみ。
 
 ## スクリーンショット
 
+**Light**
+
 | チューニング中(sharp) | in-tune(ロック) |
 |---|---|
-| ![sharp](docs/screenshots/sharp-light.png) | ![in tune](docs/screenshots/in-tune-light.png) |
+| ![sharp light](docs/screenshots/sharp-light.png) | ![in tune light](docs/screenshots/in-tune-light.png) |
 
-in-tune の瞬間だけ音名・indicator・中央目盛りが単一アクセント色へ収束する。
+**Dark**
+
+| チューニング中(sharp) | in-tune(発光ロック) |
+|---|---|
+| ![sharp dark](docs/screenshots/sharp-dark.png) | ![in tune dark](docs/screenshots/in-tune-dark.png) |
+
+in-tune の瞬間だけ音名・indicator・中央目盛りが単一アクセント色へ収束する。dark では深い graphite に対して signal が emissive に灯り、ロックを計測器の「点灯」として表現する。
 
 ## アーキテクチャ
 
