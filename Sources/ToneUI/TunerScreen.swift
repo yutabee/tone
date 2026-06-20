@@ -13,6 +13,7 @@ public struct TunerScreen: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 120
     @State private var hasStarted = false
@@ -259,7 +260,7 @@ public struct TunerScreen: View {
                 }
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: inTune)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: inTune)
     }
 
     /// 音名の LCD 読み取り部。検出時は bone、in-tune では signal に灯る。横に cents 値を添える。
@@ -275,7 +276,7 @@ public struct TunerScreen: View {
                         radius: inTune && deviceGlow ? 34 : 0)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
-                .animation(.easeInOut(duration: 0.18), value: inTune)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: inTune)
 
             if let octave = note?.octave {
                 Text("\(octave)")
@@ -365,7 +366,7 @@ public struct TunerScreen: View {
                 .font(.system(size: 11, weight: .semibold)).tracking(1.5)
                 .foregroundStyle(on ? color : theme.faceMuted)
         }
-        .animation(.easeInOut(duration: 0.18), value: on)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: on)
     }
 
     private func accessibilityDescription(note: ResolvedNote?, inTune: Bool) -> String {

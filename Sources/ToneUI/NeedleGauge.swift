@@ -45,7 +45,7 @@ struct NeedleGauge: View {
                     glowColor: theme.signal
                 )
                 .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.78), value: clamped)
-                .animation(.easeInOut(duration: 0.2), value: inTune)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: inTune)
             }
         }
         .frame(height: 196)
