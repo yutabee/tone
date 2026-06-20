@@ -40,6 +40,27 @@ instead, then submit by hand in App Store Connect.
 
 The pure-Xcode path below (steps 3–9) is the fallback if you don't use fastlane.
 
+### Distribution signing (one-time, manual)
+The App Manager API-key role can **upload** but cannot **create signing certificates**,
+so cloud signing (`-allowProvisioningUpdates`) fails at export. Release builds therefore
+use **manual signing** against assets you install once:
+
+1. **Apple Distribution certificate** — `developer.apple.com/account` → Certificates → **+**
+   → *Apple Distribution*. Generate a CSR locally (Keychain Access → Certificate Assistant →
+   *Request a Certificate from a Certificate Authority*, "Saved to disk"), upload it, download
+   the `.cer`, and double-click to import into your **login** keychain. Verify:
+   ```bash
+   security find-identity -p codesigning -v   # shows "Apple Distribution: <name> (<team id>)"
+   ```
+2. **App Store provisioning profile** — Profiles → **+** → *App Store* → App ID
+   `com.yutabee.tone` → the distribution cert above → **name it exactly `Tone App Store`**.
+   Download and double-click to install (lands in `~/Library/MobileDevice/Provisioning Profiles/`).
+
+`project.yml` pins these on the Tone target's **Release** config only
+(`CODE_SIGN_IDENTITY: "Apple Distribution"`, `PROVISIONING_PROFILE_SPECIFIER: "Tone App Store"`)
+so the setting never bleeds into the SPM dependencies. Once both are installed,
+`fastlane beta` / `fastlane release` archive + export + upload with no further signing input.
+
 ## 2. **(human)** Register the app in App Store Connect
 1. `developer.apple.com/account` → Identifiers → register App ID `com.yutabee.tone` (Explicit).
 2. App Store Connect → My Apps → **+** → New App:
