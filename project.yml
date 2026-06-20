@@ -9,7 +9,6 @@ settings:
     SWIFT_VERSION: "6.0"
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
-    CODE_SIGNING_ALLOWED: "NO"
 packages:
   ToneKit:
     path: .
@@ -34,7 +33,15 @@ targets:
         GENERATE_INFOPLIST_FILE: "YES"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: "REPLACE_WITH_TEAM_ID"
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: "NO"
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Tone uses the microphone to detect the pitch of your instrument. Audio is processed on-device and is never recorded or sent anywhere."
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: "YES"
+      configs:
+        # Debug / simulator / CI は署名不要(contributor が team 無しでもビルド可)。
+        # Release は base の Automatic 署名で App Store 配信用に署名する。
+        Debug:
+          CODE_SIGNING_ALLOWED: "NO"

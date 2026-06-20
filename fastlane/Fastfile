@@ -1,0 +1,49 @@
+# Optional convenience lanes. The pure-Xcode path in docs/RELEASE.md is the
+# source of truth; these wrap it for one-command runs once you are authenticated.
+#
+# Auth: create an App Store Connect API key and export before running:
+#   export ASC_KEY_ID=...  ASC_ISSUER_ID=...  ASC_KEY_PATH=AuthKey_XXX.p8
+#
+# Prereqs: `brew install fastlane xcodegen` and a Team ID set in project.yml.
+
+default_platform(:ios)
+
+ASC_KEY = lambda do
+  app_store_connect_api_key(
+    key_id: ENV.fetch("ASC_KEY_ID"),
+    issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+    key_filepath: ENV.fetch("ASC_KEY_PATH")
+  )
+end
+
+platform :ios do
+  desc "Regenerate the Xcode project, archive Release, and export an App Store .ipa"
+  lane :build do
+    sh("cd .. && xcodegen generate")
+    build_app(
+      project: "Tone.xcodeproj",
+      scheme: "Tone",
+      configuration: "Release",
+      export_method: "app-store-connect",
+      output_directory: "build/export",
+      output_name: "Tone.ipa"
+    )
+  end
+
+  desc "Build and upload the binary to App Store Connect (TestFlight)"
+  lane :beta do
+    build
+    upload_to_testflight(api_key: ASC_KEY.call, skip_waiting_for_build_processing: true)
+  end
+
+  desc "Upload metadata + screenshots from fastlane/ to App Store Connect (no submit)"
+  lane :metadata do
+    upload_to_app_store(
+      api_key: ASC_KEY.call,
+      skip_binary_upload: true,
+      submit_for_review: false,
+      precheck_include_in_app_purchases: false,
+      force: true
+    )
+  end
+end

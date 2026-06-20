@@ -1,0 +1,8 @@
+app_identifier("jp.syncbloom.tone")
+apple_id("info@syncbloom.jp")
+
+# Apple Developer Portal の 10 桁 Team ID に置き換える。
+team_id("REPLACE_WITH_TEAM_ID")
+
+# App Store Connect の team が複数ある場合のみ指定(通常は不要 / 自動)。
+# itc_team_id("REPLACE_IF_NEEDED")

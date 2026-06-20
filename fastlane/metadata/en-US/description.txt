@@ -1,0 +1,17 @@
+Tone is a chromatic tuner that does one thing well: tell you the pitch — clearly and instantly.
+
+No ads. No accounts. No sign-up. No analytics. Open it and play.
+
+WHAT IT DOES
+• Hears any note from your instrument and shows the note, octave, and how many cents sharp or flat you are.
+• Uses a calm linear scale instead of a jittery needle, so the reading is easy to trust.
+• Turns a single accent color the moment you're in tune, with a gentle haptic tap — keep your eyes on the instrument, not the screen.
+• Adjustable reference pitch: A4 from 415 to 466 Hz.
+
+PRIVATE BY DESIGN
+Audio is processed entirely on your device and is never recorded, saved, or sent anywhere. Tone works fully offline and contains no third-party tracking.
+
+DESIGNED FOR iOS
+A native Liquid Glass interface in light and dark, with VoiceOver and Dynamic Type support.
+
+Tune a guitar, violin, cello, wind instrument, or anything with a clear pitch.

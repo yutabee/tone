@@ -1,0 +1,3 @@
+Tone is a chromatic tuner. To test it, open the app and play a note near the device — a tuned instrument, a tuner/tone app on another device, or even whistling. The app shows the detected note and how many cents sharp or flat it is, and turns green the moment the pitch is in tune.
+
+The microphone is used only for on-device pitch detection. No audio is recorded or transmitted, and the app makes no network connections — it works fully offline. No account or sign-in is required.
