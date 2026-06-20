@@ -1,5 +1,7 @@
 # Tone
 
+[![CI](https://github.com/yutabee/tone/actions/workflows/ci.yml/badge.svg)](https://github.com/yutabee/tone/actions/workflows/ci.yml)
+
 An ad-free, fully-offline iOS chromatic tuner with a native iOS 26 Liquid Glass interface.
 
 No ads. No accounts. No analytics. No feature bloat. One screen that does one thing — tell you the pitch — and gets out of the way. The differentiation isn't a louder feature list; it's a calm, modern, genuinely private tuner.
