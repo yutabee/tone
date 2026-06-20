@@ -22,7 +22,7 @@ struct NeedleGauge: View {
             let h = geo.size.height
             // 支点は下端中央のやや下。針を長く取り、計器らしい弧長を確保する。
             let pivot = CGPoint(x: w / 2, y: h - 6)
-            let radius = min(w * 0.56, h - 14)
+            let radius = max(0, min(w * 0.56, h - 14))
             let hasReading = cents != nil
             let clamped = Double(min(max(cents ?? 0, -50), 50))
             let glow = inTune && theme.prefersGlow && !reduceTransparency
@@ -45,7 +45,7 @@ struct NeedleGauge: View {
                     glowColor: theme.signal
                 )
                 .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.78), value: clamped)
-                .animation(.easeInOut(duration: 0.2), value: inTune)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: inTune)
             }
         }
         .frame(height: 196)
@@ -82,7 +82,7 @@ struct NeedleGauge: View {
         for c in stride(from: -50.0, through: 50.0, by: 5.0) {
             let deg = c / 50 * spanDeg
             let isMajor = Int(c) % 25 == 0
-            let inner = radius - (isMajor ? 18 : 10)
+            let inner = max(0, radius - (isMajor ? 18 : 10))
             let p1 = point(deg, pivot: pivot, radius: inner)
             let p2 = point(deg, pivot: pivot, radius: radius)
             var path = Path()
@@ -98,7 +98,7 @@ struct NeedleGauge: View {
         var band = Path()
         band.addArc(
             center: pivot,
-            radius: radius - 2,
+            radius: max(0, radius - 2),
             startAngle: .degrees(-90 - 3),
             endAngle: .degrees(-90 + 3),
             clockwise: false

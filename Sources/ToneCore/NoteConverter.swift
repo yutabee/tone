@@ -30,6 +30,9 @@ public struct NoteConverter: Equatable, Sendable {
         let name = NoteName.allCases[noteIndex]
         let octave = Int(floor(Double(midi) / 12.0)) - 1
 
-        return ResolvedNote(name: name, octave: octave, cents: cents, frequency: frequency)
+        return ResolvedNote(
+            name: name, octave: octave, cents: cents,
+            frequency: frequency, targetFrequency: targetFrequency
+        )
     }
 }

@@ -13,6 +13,7 @@ public struct TunerScreen: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 120
     @State private var hasStarted = false
@@ -239,6 +240,7 @@ public struct TunerScreen: View {
                         }
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(theme.faceMuted)
+                        .accessibilityHidden(true)   // 装飾の計器端ラベル。集約 label に含めない。
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 22)
@@ -259,7 +261,7 @@ public struct TunerScreen: View {
                 }
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: inTune)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: inTune)
     }
 
     /// 音名の LCD 読み取り部。検出時は bone、in-tune では signal に灯る。横に cents 値を添える。
@@ -275,7 +277,7 @@ public struct TunerScreen: View {
                         radius: inTune && deviceGlow ? 34 : 0)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
-                .animation(.easeInOut(duration: 0.18), value: inTune)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: inTune)
 
             if let octave = note?.octave {
                 Text("\(octave)")
@@ -296,13 +298,12 @@ public struct TunerScreen: View {
         .accessibilityLabel(accessibilityDescription(note: note, inTune: inTune))
     }
 
-    /// 周波数読み取り: 検出 Hz → 目標 Hz。目標は検出値と cents から算出(target = f·2^(-cents/1200))。
+    /// 周波数読み取り: 検出 Hz → 目標 Hz。目標は丸め cents 逆算ではなく ResolvedNote の
+    /// 厳密な targetFrequency(基準音の 0¢ 周波数)を表示する。
     private func frequencyReadout(note: ResolvedNote?) -> some View {
         let placeholder = "\u{2013}\u{2013}\u{2013}.\u{2013}"
         let detected = note.map { String(format: "%.1f", $0.frequency) } ?? placeholder
-        let target = note.map {
-            String(format: "%.1f", $0.frequency * pow(2.0, -Double($0.cents) / 1200.0))
-        } ?? placeholder
+        let target = note.map { String(format: "%.1f", $0.targetFrequency) } ?? placeholder
         return HStack(spacing: 12) {
             freqCell(caption: copy.detected, value: detected, strong: true)
             Image(systemName: "arrow.right")
@@ -316,7 +317,7 @@ public struct TunerScreen: View {
     private func freqCell(caption: String, value: String, strong: Bool) -> some View {
         VStack(spacing: 3) {
             Text(caption.uppercased())
-                .font(.system(size: 9, weight: .semibold)).tracking(1.5)
+                .font(.system(.caption2, design: .default).weight(.semibold)).tracking(1.5)
                 .foregroundStyle(theme.faceMuted)
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
@@ -324,7 +325,7 @@ public struct TunerScreen: View {
                     .monospacedDigit()
                     .foregroundStyle(strong ? theme.needle : theme.faceMuted)
                 Text("Hz")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(.caption2).weight(.medium))
                     .foregroundStyle(theme.faceMuted)
             }
         }
@@ -363,10 +364,10 @@ public struct TunerScreen: View {
                 .shadow(color: on && deviceGlow ? color.opacity(0.85) : .clear,
                         radius: on && deviceGlow ? 5 : 0)
             Text(label)
-                .font(.system(size: 11, weight: .semibold)).tracking(1.5)
+                .font(.system(.caption2).weight(.semibold)).tracking(1.5)
                 .foregroundStyle(on ? color : theme.faceMuted)
         }
-        .animation(.easeInOut(duration: 0.18), value: on)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: on)
     }
 
     private func accessibilityDescription(note: ResolvedNote?, inTune: Bool) -> String {

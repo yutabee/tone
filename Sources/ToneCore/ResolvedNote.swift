@@ -9,11 +9,15 @@ public struct ResolvedNote: Equatable, Sendable {
     public let cents: Int
     /// 解決に使った入力周波数 (Hz)。
     public let frequency: Double
+    /// 最寄り音(0¢)の厳密な基準周波数 (Hz)。`referenceA4` と音高から算出した値で、
+    /// 丸め済み `cents` からの逆算ではないため、目標 Hz 表示はこれを使う。
+    public let targetFrequency: Double
 
-    public init(name: NoteName, octave: Int, cents: Int, frequency: Double) {
+    public init(name: NoteName, octave: Int, cents: Int, frequency: Double, targetFrequency: Double) {
         self.name = name
         self.octave = octave
         self.cents = cents
         self.frequency = frequency
+        self.targetFrequency = targetFrequency
     }
 }
