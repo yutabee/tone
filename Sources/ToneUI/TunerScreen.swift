@@ -260,8 +260,6 @@ public struct TunerScreen: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: inTune)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityDescription(note: note, inTune: inTune))
     }
 
     /// 音名の LCD 読み取り部。検出時は bone、in-tune では signal に灯る。横に cents 値を添える。
@@ -292,7 +290,10 @@ public struct TunerScreen: View {
                 .foregroundStyle(theme.faceMuted)
                 .padding(.leading, 4)
         }
-        .accessibilityHidden(true)
+        // 読み上げの集約先。個々の表示部品は hidden のまま、ここに音名+方向/量をまとめる。
+        // REF ステッパーを巻き込まないよう、layout 全体ではなくこの読み取り部に label を付ける。
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityDescription(note: note, inTune: inTune))
     }
 
     /// 周波数読み取り: 検出 Hz → 目標 Hz。目標は検出値と cents から算出(target = f·2^(-cents/1200))。
