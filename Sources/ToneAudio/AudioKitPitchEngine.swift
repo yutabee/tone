@@ -37,9 +37,17 @@ public final class AudioKitPitchEngine: PitchEngine {
     private var isRunning = false
     private var isInterrupted = false
     private var readingGeneration = 0
+    private var notificationGeneration = 0
 
     public init(clock: any Clock = MonotonicClock()) {
         self.clock = clock
+    }
+
+    // MainActor 隔離の stored property に触れるため isolated deinit を使う(Swift 6.1+)。
+    isolated deinit {
+        for observer in notificationObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     /// iOS 17+ の `AVAudioApplication.requestRecordPermission` で権限を要求する。
@@ -72,6 +80,7 @@ public final class AudioKitPitchEngine: PitchEngine {
 
         do {
             try startAudioGraph()
+            isInterrupted = false
             ensureNotificationObservers()
         } catch {
             wantsRunning = false
@@ -93,10 +102,27 @@ public final class AudioKitPitchEngine: PitchEngine {
         let session = AVAudioSession.sharedInstance()
 
         do {
-            try session.setCategory(.record, mode: .measurement)
-            try session.setActive(true)
+            try session.setCategory(.record, mode: .measurement, options: [.allowBluetoothHFP])
         } catch {
             throw PitchEngineError.engineUnavailable
+        }
+
+        guard session.isInputAvailable else {
+            throw PitchEngineError.inputUnavailable
+        }
+
+        do {
+            try session.setActive(true)
+        } catch {
+            if !session.isInputAvailable {
+                throw PitchEngineError.inputUnavailable
+            }
+            throw PitchEngineError.engineUnavailable
+        }
+
+        guard session.isInputAvailable else {
+            try? session.setActive(false)
+            throw PitchEngineError.inputUnavailable
         }
 
         let engine = AudioEngine()
@@ -135,6 +161,7 @@ public final class AudioKitPitchEngine: PitchEngine {
         do {
             try engine.start()
             isRunning = true
+            notificationGeneration += 1
         } catch {
             stopAudioGraph(deactivateSession: true)
             throw PitchEngineError.engineUnavailable
@@ -143,6 +170,7 @@ public final class AudioKitPitchEngine: PitchEngine {
 
     private func stopAudioGraph(deactivateSession: Bool) {
         readingGeneration += 1
+        notificationGeneration += 1
         isRunning = false
         tap?.stop()
         tap = nil
@@ -160,6 +188,7 @@ public final class AudioKitPitchEngine: PitchEngine {
 
         let center = NotificationCenter.default
         let session = AVAudioSession.sharedInstance()
+        let observerGeneration = notificationGeneration
 
         notificationObservers.append(
             center.addObserver(
@@ -177,7 +206,8 @@ public final class AudioKitPitchEngine: PitchEngine {
                 )
 
                 Task { @MainActor [weak self] in
-                    self?.handleInterruption(typeRawValue: typeRawValue, optionRawValue: optionRawValue)
+                    guard let self, self.notificationGeneration == observerGeneration else { return }
+                    self.handleInterruption(typeRawValue: typeRawValue, optionRawValue: optionRawValue)
                 }
             }
         )
@@ -194,7 +224,8 @@ public final class AudioKitPitchEngine: PitchEngine {
                 )
 
                 Task { @MainActor [weak self] in
-                    self?.handleRouteChange(reasonRawValue: reasonRawValue)
+                    guard let self, self.notificationGeneration == observerGeneration else { return }
+                    self.handleRouteChange(reasonRawValue: reasonRawValue)
                 }
             }
         )
@@ -206,7 +237,8 @@ public final class AudioKitPitchEngine: PitchEngine {
                 queue: .main
             ) { _ in
                 Task { @MainActor [weak self] in
-                    self?.handleMediaServicesReset()
+                    guard let self, self.notificationGeneration == observerGeneration else { return }
+                    self.handleMediaServicesReset()
                 }
             }
         )
@@ -220,6 +252,11 @@ public final class AudioKitPitchEngine: PitchEngine {
         notificationObservers.removeAll()
     }
 
+    private func resetNotificationObserversForCurrentGeneration() {
+        removeNotificationObservers()
+        ensureNotificationObservers()
+    }
+
     private func handleInterruption(typeRawValue: UInt?, optionRawValue: UInt?) {
         guard let typeRawValue,
               let interruptionType = AVAudioSession.InterruptionType(rawValue: typeRawValue)
@@ -229,6 +266,7 @@ public final class AudioKitPitchEngine: PitchEngine {
         case .began:
             isInterrupted = true
             stopAudioGraph(deactivateSession: false)
+            resetNotificationObserversForCurrentGeneration()
         case .ended:
             isInterrupted = false
             let options = AVAudioSession.InterruptionOptions(rawValue: optionRawValue ?? 0)
@@ -240,6 +278,7 @@ public final class AudioKitPitchEngine: PitchEngine {
         @unknown default:
             isInterrupted = true
             stopAudioGraph(deactivateSession: false)
+            resetNotificationObserversForCurrentGeneration()
         }
     }
 
@@ -262,6 +301,7 @@ public final class AudioKitPitchEngine: PitchEngine {
 
         stopAudioGraph(deactivateSession: false)
         try? startAudioGraph()
+        resetNotificationObserversForCurrentGeneration()
     }
 
     private nonisolated static func uintValue(in userInfo: [AnyHashable: Any]?, forKey key: String) -> UInt? {
