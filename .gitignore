@@ -13,5 +13,14 @@ xcuserdata/
 # xcodegen が project.yml から生成(SSOT は project.yml)
 *.xcodeproj
 
+# Release secrets — never commit (Apple session, API keys, certs, profiles)
+.env
+.env.*
+fastlane/.env*
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+
 # macOS
 .DS_Store
