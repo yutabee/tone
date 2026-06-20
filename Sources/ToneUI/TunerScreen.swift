@@ -32,11 +32,11 @@ public struct TunerScreen: View {
 
     public var body: some View {
         ZStack {
-            background
+            deviceSurface
 
             center
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
         }
         // ロックの瞬間にハプティクスで“はまった”手応えを返す(主流の iOS 体験)。
         .sensoryFeedback(trigger: isInTune) { _, now in now ? .success : nil }
@@ -60,45 +60,32 @@ public struct TunerScreen: View {
         return false
     }
 
-    // MARK: - Background(色付きグラデ + 滲む光)
+    // MARK: - Device surface(全画面の筐体面)
 
-    private var background: some View {
+    /// 画面全体を覆うグラファイト面(full-bleed)。背景の余白を残さず、端末そのものが
+    /// 1 台の計測器に見えるようにする。上方からの淡い sheen で奥行きを与える。
+    private var deviceSurface: some View {
         ZStack {
-            LinearGradient(
-                colors: [theme.bgTop, theme.bgBottom],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            LinearGradient(colors: [theme.faceTop, theme.faceBottom],
+                           startPoint: .top, endPoint: .bottom)
             if !reduceTransparency {
-                RadialGradient(
-                    colors: [theme.haloPrimary.opacity(theme.isDark ? 0.45 : 0.22), .clear],
-                    center: .topTrailing, startRadius: 0, endRadius: 460
-                )
-                RadialGradient(
-                    colors: [theme.haloSecondary.opacity(theme.isDark ? 0.40 : 0.18), .clear],
-                    center: .bottomLeading, startRadius: 0, endRadius: 520
-                )
+                RadialGradient(colors: [Color.white.opacity(0.06), .clear],
+                               center: .top, startRadius: 0, endRadius: 420)
             }
         }
         .ignoresSafeArea()
     }
 
-    // MARK: - Faceplate(筐体)
+    // MARK: - Faceplate(内側の面取り枠 + ネジ)
 
-    /// グラファイトの筐体。上=明 / 下=暗のブラッシュド面、外周の面取り、四隅のネジ、落ち影。
-    /// reduce-transparency でも筐体は不透明な塗りなのでそのまま成立する(影だけ畳む)。
+    /// full-bleed の筐体面の内側に、面取り枠と四隅のネジを描く。背景塗りは持たない
+    /// (グラファイトは `deviceSurface` が担う)。これで端末全体が 1 台の機材に見える。
     private func faceplate<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 34, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
         return content()
-            .padding(.horizontal, 24)
-            .padding(.vertical, 28)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 22)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background {
-                shape.fill(
-                    LinearGradient(colors: [theme.faceTop, theme.faceBottom],
-                                   startPoint: .top, endPoint: .bottom)
-                )
-            }
             .overlay {
                 shape.strokeBorder(
                     LinearGradient(colors: [theme.bezelHighlight, theme.bezelShadow],
@@ -110,9 +97,6 @@ public struct TunerScreen: View {
             .overlay(alignment: .topTrailing) { screw }
             .overlay(alignment: .bottomLeading) { screw }
             .overlay(alignment: .bottomTrailing) { screw }
-            .shadow(color: reduceTransparency ? .clear : Color.black.opacity(0.5),
-                    radius: reduceTransparency ? 0 : 32, y: reduceTransparency ? 0 : 20)
-            .frame(maxWidth: 560)
     }
 
     /// 筐体角のネジ(マイナス溝)。装飾だが「機材」の記号として効く。VoiceOver からは隠す。
@@ -257,16 +241,20 @@ public struct TunerScreen: View {
                     .padding(.bottom, 16)
                 }
 
-                Spacer(minLength: 24)
+                Spacer(minLength: 22)
 
                 lcdReadout(note: note, inTune: inTune)
 
                 Spacer(minLength: 22)
 
+                frequencyReadout(note: note)
+
+                Spacer(minLength: 20)
+
                 ledRow(note: note, inTune: inTune)
 
                 if showsReferenceControl {
-                    Spacer(minLength: 24)
+                    Spacer(minLength: 22)
                     referenceControl
                 }
             }
@@ -305,6 +293,49 @@ public struct TunerScreen: View {
                 .padding(.leading, 4)
         }
         .accessibilityHidden(true)
+    }
+
+    /// 周波数読み取り: 検出 Hz → 目標 Hz。目標は検出値と cents から算出(target = f·2^(-cents/1200))。
+    private func frequencyReadout(note: ResolvedNote?) -> some View {
+        let placeholder = "\u{2013}\u{2013}\u{2013}.\u{2013}"
+        let detected = note.map { String(format: "%.1f", $0.frequency) } ?? placeholder
+        let target = note.map {
+            String(format: "%.1f", $0.frequency * pow(2.0, -Double($0.cents) / 1200.0))
+        } ?? placeholder
+        return HStack(spacing: 12) {
+            freqCell(caption: copy.detected, value: detected, strong: true)
+            Image(systemName: "arrow.right")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(theme.faceMuted)
+            freqCell(caption: copy.target, value: target, strong: false)
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func freqCell(caption: String, value: String, strong: Bool) -> some View {
+        VStack(spacing: 3) {
+            Text(caption.uppercased())
+                .font(.system(size: 9, weight: .semibold)).tracking(1.5)
+                .foregroundStyle(theme.faceMuted)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value)
+                    .font(.system(.title3, design: .monospaced).weight(.medium))
+                    .monospacedDigit()
+                    .foregroundStyle(strong ? theme.needle : theme.faceMuted)
+                Text("Hz")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(theme.faceMuted)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background {
+            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black.opacity(0.24))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
+        }
     }
 
     /// LED 列: ♭(amber) ─ IN TUNE(signal) ─ ♯(amber)。状態に応じて 1 つだけ灯る。

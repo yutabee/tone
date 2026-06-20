@@ -51,6 +51,10 @@ struct TunerCopy {
     var lowerReference: String { t("基準を下げる", "Lower reference") }
     var raiseReference: String { t("基準を上げる", "Raise reference") }
 
+    // 周波数読み取り
+    var detected: String { t("検出", "Detected") }
+    var target: String { t("目標", "Target") }
+
     // VoiceOver: 音名 + 高い/低い/合っている
     func noteAccessibilityLabel(_ note: ResolvedNote, inTune: Bool) -> String {
         let name = spokenNoteName(note.name)
