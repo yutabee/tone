@@ -39,8 +39,17 @@ end
 platform :ios do
   desc "Regenerate the Xcode project and archive a signed App Store .ipa"
   lane :build do
-    require_env!(%w[DEVELOPMENT_TEAM])
+    require_env!(%w[DEVELOPMENT_TEAM ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_FILEPATH])
     sh("cd .. && xcodegen generate")
+    # NOTE: build_app(gym)は `api_key:` を受け付けない(API キーは deliver/pilot 等の
+    # upload 系専用)。署名の自動プロビジョニングに必要な App Store Connect 認証は、
+    # xcodebuild へ `-authenticationKey*` 引数として直接渡す(archive / export 両方で有効)。
+    auth_xcargs = [
+      "-allowProvisioningUpdates",
+      "-authenticationKeyPath #{ENV.fetch('ASC_KEY_FILEPATH')}",
+      "-authenticationKeyID #{ENV.fetch('ASC_KEY_ID')}",
+      "-authenticationKeyIssuerID #{ENV.fetch('ASC_ISSUER_ID')}"
+    ].join(" ")
     build_app(
       project: "Tone.xcodeproj",
       scheme: "Tone",
@@ -48,8 +57,7 @@ platform :ios do
       export_method: "app-store",
       output_directory: "build/export",
       output_name: "Tone.ipa",
-      api_key: asc_api_key,
-      xcargs: "-allowProvisioningUpdates"
+      xcargs: auth_xcargs
     )
   end
 
