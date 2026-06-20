@@ -1,0 +1,82 @@
+name: CI
+
+# PR と main への push でビルド・テストを検証する。
+# 署名は不要(Debug は CODE_SIGNING_ALLOWED=NO)なので Team ID/secret は使わない。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 同一 ref の古い実行はキャンセル(PR 連続 push でのランナー浪費を防ぐ)。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Unit tests (ToneCore / macOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Toolchain
+        run: swift --version
+
+      # ToneCoreTests は ToneCore のみに依存(AudioKit/SwiftUI 非依存)。
+      # macOS 上で素の swift test が通る = ドメインロジックの回帰検出。
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            spm-${{ runner.os }}-
+
+      - name: swift test
+        run: swift test
+
+  ios-build:
+    name: iOS build (simulator, unsigned)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      # Tone.xcodeproj は gitignore(SSOT は project.yml)。CI で都度生成する。
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      # SwiftPM の checkout を固定位置に置いてキャッシュ(AudioKit の再 clone を回避)。
+      - name: Cache SwiftPM (Xcode)
+        uses: actions/cache@v4
+        with:
+          path: .spm-cache
+          key: xcode-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            xcode-spm-
+
+      # ToneAudio/ToneUI を含む iOS 専用コードのコンパイル破壊を捕捉。
+      # generic destination はシミュレータ起動不要でビルドのみ検証する。
+      - name: Build (Debug, iOS Simulator, no signing)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Tone.xcodeproj \
+            -scheme Tone \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -clonedSourcePackagesDirPath .spm-cache \
+            CODE_SIGNING_ALLOWED=NO
