@@ -49,28 +49,96 @@ public final class TunerViewModel {
     /// `.granted` なら `engine.start()`(成功で `.listening` / 失敗で `.engineError`)、
     /// `.denied` なら `.permissionDenied`。`onReading` の配線もここで行う。
     public func onAppear() async {
-        // TODO(codex): spec「起動シーケンス」を実装する。受け入れ: AC9, AC14。
+        if let storedReferenceA4 = store.load() {
+            updateReferenceA4(storedReferenceA4, shouldSave: false)
+        }
+
+        engine.onReading = { [weak self] reading in
+            self?.handle(reading)
+        }
+
+        state = .requestingPermission
+
+        switch await engine.requestPermission() {
+        case .granted:
+            startEngine()
+        case .denied:
+            state = .permissionDenied
+        case .notDetermined:
+            state = .requestingPermission
+        }
     }
 
     /// 画面離脱で検出を止める。
     public func onDisappear() {
-        // TODO(codex): engine.stop() を呼ぶ。
+        engine.stop()
     }
 
     /// 基準ピッチ変更: `415...466` にクランプ → `store.save` → `processor` / `converter` を再構築し
     /// `referenceA4` を更新する。
     public func setReferenceA4(_ hz: Double) {
-        // TODO(codex): spec「基準ピッチ」を実装する。受け入れ: AC6, AC11。
+        updateReferenceA4(hz, shouldSave: true)
     }
 
     /// `engineError` からの再試行。
     public func retry() async {
-        // TODO(codex): engine.start() を再試行し state を更新する。
+        startEngine()
     }
 
     /// 無音評価。UI 更新周期(`TimelineView` / タイマー)から呼ぶ。
     /// `clock.now` を使って `processor.evaluateSilence` を適用し、無音なら `.listening` へ反映する。
     public func evaluateSilence() {
-        // TODO(codex): spec「無音判定」を実装する。受け入れ: AC8。
+        tuningState = processor.evaluateSilence(tuningState, now: clock.now)
+        applyTuningStateToViewState()
+    }
+
+    private func handle(_ reading: PitchReading) {
+        tuningState = processor.ingest(tuningState, reading)
+        applyTuningStateToViewState()
+    }
+
+    private func applyTuningStateToViewState() {
+        switch state {
+        case .permissionDenied, .engineError:
+            return
+        case .idle, .requestingPermission, .listening, .tuning:
+            break
+        }
+
+        if let note = tuningState.note {
+            state = .tuning(note: note, inTune: tuningState.inTune)
+            return
+        }
+
+        switch state {
+        case .listening, .tuning:
+            state = .listening
+        case .idle, .requestingPermission, .permissionDenied, .engineError:
+            break
+        }
+    }
+
+    private func startEngine() {
+        do {
+            try engine.start()
+            state = .listening
+        } catch let error as PitchEngineError {
+            state = .engineError(error)
+        } catch {
+            state = .engineError(.engineUnavailable)
+        }
+    }
+
+    private func updateReferenceA4(_ hz: Double, shouldSave: Bool) {
+        let clamped = min(max(hz, 415.0), 466.0)
+        if shouldSave {
+            store.save(clamped)
+        }
+
+        processor = TuningProcessor(
+            converter: NoteConverter(referenceA4: clamped),
+            config: processor.config
+        )
+        referenceA4 = clamped
     }
 }

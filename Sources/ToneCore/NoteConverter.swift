@@ -19,7 +19,17 @@ public struct NoteConverter: Equatable, Sendable {
     /// - `name = NoteName.allCases[midi % 12]`、`octave = midi / 12 - 1`
     /// - タイブレーク: ちょうど ±50 cents は round-half-up により上隣の音へ寄せる(一意)
     public func note(for frequency: Double) -> ResolvedNote? {
-        // TODO(codex): 上記アルゴリズムを実装する。受け入れ: AC1〜AC5。
-        return nil
+        guard frequency > 0, frequency.isFinite, referenceA4 > 0, referenceA4.isFinite else {
+            return nil
+        }
+
+        let midi = Int(round(69.0 + 12.0 * log2(frequency / referenceA4)))
+        let targetFrequency = referenceA4 * pow(2.0, Double(midi - 69) / 12.0)
+        let cents = Int(round(1200.0 * log2(frequency / targetFrequency)))
+        let noteIndex = ((midi % 12) + 12) % 12
+        let name = NoteName.allCases[noteIndex]
+        let octave = Int(floor(Double(midi) / 12.0)) - 1
+
+        return ResolvedNote(name: name, octave: octave, cents: cents, frequency: frequency)
     }
 }

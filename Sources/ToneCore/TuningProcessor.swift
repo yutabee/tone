@@ -29,14 +29,66 @@ public struct TuningProcessor: Equatable, Sendable {
     /// 4. 受理時: `f' = referenceA4 · 2^(smoothed / 1200)` を `converter.note(for:)` に通して `note` を得る。
     ///    `inTune = abs(note.cents) <= config.inTuneCents`、`lastValidAt = reading.timestamp`。
     public func ingest(_ state: TuningState, _ reading: PitchReading) -> TuningState {
-        // TODO(codex): 上記手順を実装する。受け入れ: AC7, AC10, AC12 + 振幅ゲート。
-        return state
+        guard reading.frequency > 0, reading.frequency.isFinite else {
+            return state
+        }
+
+        guard reading.amplitude >= config.amplitudeGate else {
+            return state
+        }
+
+        let measuredCents = 1200.0 * log2(reading.frequency / converter.referenceA4)
+        guard measuredCents.isFinite else {
+            return state
+        }
+
+        var next = state
+        let smoothedCents: Double
+
+        if let currentSmoothed = state.smoothedCentsFromRef {
+            let isOutlier = abs(measuredCents - currentSmoothed) > config.octaveRejectCents
+
+            if isOutlier {
+                guard state.pendingOutlierCents != nil else {
+                    next.pendingOutlierCents = measuredCents
+                    return next
+                }
+
+                smoothedCents = measuredCents
+            } else {
+                smoothedCents = config.emaAlpha * measuredCents + (1.0 - config.emaAlpha) * currentSmoothed
+            }
+        } else {
+            smoothedCents = measuredCents
+        }
+
+        let smoothedFrequency = converter.referenceA4 * pow(2.0, smoothedCents / 1200.0)
+        guard let note = converter.note(for: smoothedFrequency) else {
+            return state
+        }
+
+        next.smoothedCentsFromRef = smoothedCents
+        next.pendingOutlierCents = nil
+        next.note = note
+        next.inTune = abs(note.cents) <= config.inTuneCents
+        next.lastValidAt = reading.timestamp
+        return next
     }
 
     /// 無音タイムアウト評価。`lastValidAt` から `config.silenceTimeout` を超過していれば `note = nil`
     /// (無音)にする。`lastValidAt == nil` の場合は state 不変。
     public func evaluateSilence(_ state: TuningState, now: TimeInterval) -> TuningState {
-        // TODO(codex): 上記を実装する。受け入れ: AC8。
-        return state
+        guard let lastValidAt = state.lastValidAt else {
+            return state
+        }
+
+        guard now - lastValidAt > config.silenceTimeout else {
+            return state
+        }
+
+        var next = state
+        next.note = nil
+        next.inTune = false
+        return next
     }
 }
