@@ -8,11 +8,35 @@ payment, or a manual decision and cannot be automated.
 - Your 10-character **Team ID** (App Store Connect → Membership, or `developer.apple.com/account`).
 - Tools: `xcode-select --install`, `brew install xcodegen`, and optionally `brew install fastlane`.
 
-## 1. Fill in your Team ID
-Replace `REPLACE_WITH_TEAM_ID` in:
-- `project.yml` (`DEVELOPMENT_TEAM`)
-- `ExportOptions.plist` (`teamID`)
-- `fastlane/Appfile` (`team_id`)
+## 1. Configure your Team ID (no secrets committed)
+`project.yml` and `fastlane/Appfile` read the Team ID from the environment:
+```bash
+export DEVELOPMENT_TEAM=XXXXXXXXXX   # your 10-char Team ID
+```
+For the manual xcodebuild path (steps 3–9) also set `teamID` in `ExportOptions.plist`.
+
+## A. Automated release — fastlane, manual auth (recommended)
+No App Store Connect API key is shared. You authenticate once with 2FA; fastlane
+then runs non-interactively from the session. After the app record exists, one
+command does build → upload → metadata → submit.
+
+```bash
+brew install fastlane xcodegen
+export DEVELOPMENT_TEAM=XXXXXXXXXX
+export FASTLANE_USER=info@syncbloom.jp
+# App-specific password (binary upload): appleid.apple.com → Sign-In and Security → App-Specific Passwords
+export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
+# Complete 2FA in the prompt, then keep the printed session (~30 days):
+export FASTLANE_SESSION="$(fastlane spaceauth -u "$FASTLANE_USER")"
+
+fastlane ensure_app   # creates the App ID + App Store Connect record (idempotent) — replaces step 2
+fastlane release      # build+sign → upload binary + metadata + screenshots → SUBMIT for review
+```
+`fastlane release` ends by **submitting for review (irreversible)**. To stop short of
+that: run `fastlane metadata` (text + screenshots) and `fastlane beta` (TestFlight)
+instead, then submit by hand in App Store Connect.
+
+The pure-Xcode path below (steps 3–9) is the fallback if you don't use fastlane.
 
 ## 2. **(human)** Register the app in App Store Connect
 1. `developer.apple.com/account` → Identifiers → register App ID `jp.syncbloom.tone` (Explicit).
