@@ -22,7 +22,7 @@ struct NeedleGauge: View {
             let h = geo.size.height
             // 支点は下端中央のやや下。針を長く取り、計器らしい弧長を確保する。
             let pivot = CGPoint(x: w / 2, y: h - 6)
-            let radius = min(w * 0.47, h - 14)
+            let radius = min(w * 0.56, h - 14)
             let hasReading = cents != nil
             let clamped = Double(min(max(cents ?? 0, -50), 50))
             let glow = inTune && theme.prefersGlow && !reduceTransparency
@@ -48,7 +48,7 @@ struct NeedleGauge: View {
                 .animation(.easeInOut(duration: 0.2), value: inTune)
             }
         }
-        .frame(height: 158)
+        .frame(height: 196)
         .accessibilityHidden(true)
     }
 

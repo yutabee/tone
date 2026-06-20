@@ -14,7 +14,7 @@ public struct TunerScreen: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.scenePhase) private var scenePhase
-    @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 92
+    @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 120
     @State private var hasStarted = false
 
     private let copy = TunerCopy()
@@ -34,13 +34,9 @@ public struct TunerScreen: View {
         ZStack {
             background
 
-            VStack(spacing: 0) {
-                Spacer(minLength: 0)
-                center
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, ToneMetrics.screenPadding)
-            .padding(.vertical, ToneMetrics.screenPadding)
+            center
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
         }
         // ロックの瞬間にハプティクスで“はまった”手応えを返す(主流の iOS 体験)。
         .sensoryFeedback(trigger: isInTune) { _, now in now ? .success : nil }
@@ -95,8 +91,8 @@ public struct TunerScreen: View {
         let shape = RoundedRectangle(cornerRadius: 34, style: .continuous)
         return content()
             .padding(.horizontal, 24)
-            .padding(.vertical, 26)
-            .frame(maxWidth: .infinity)
+            .padding(.vertical, 28)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
                 shape.fill(
                     LinearGradient(colors: [theme.faceTop, theme.faceBottom],
@@ -116,7 +112,7 @@ public struct TunerScreen: View {
             .overlay(alignment: .bottomTrailing) { screw }
             .shadow(color: reduceTransparency ? .clear : Color.black.opacity(0.5),
                     radius: reduceTransparency ? 0 : 32, y: reduceTransparency ? 0 : 20)
-            .frame(maxWidth: 380)
+            .frame(maxWidth: 560)
     }
 
     /// 筐体角のネジ(マイナス溝)。装飾だが「機材」の記号として効く。VoiceOver からは隠す。
@@ -240,29 +236,37 @@ public struct TunerScreen: View {
 
     private func tuningLayout(note: ResolvedNote?, inTune: Bool) -> some View {
         faceplate {
-            VStack(spacing: 20) {
+            VStack(spacing: 0) {
                 faceplateHeader
 
+                Spacer(minLength: 16)
+
                 meterWindow(tinted: inTune) {
-                    VStack(spacing: 2) {
+                    VStack(spacing: 4) {
                         NeedleGauge(cents: note?.cents, inTune: inTune, theme: theme)
                         HStack {
                             Text("\u{266D}")        // flat 端ラベル
                             Spacer()
                             Text("\u{266F}")        // sharp 端ラベル
                         }
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(theme.faceMuted)
                     }
-                    .padding(.horizontal, 22)
-                    .padding(.top, 16)
-                    .padding(.bottom, 12)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 22)
+                    .padding(.bottom, 16)
                 }
 
+                Spacer(minLength: 24)
+
                 lcdReadout(note: note, inTune: inTune)
+
+                Spacer(minLength: 22)
+
                 ledRow(note: note, inTune: inTune)
 
                 if showsReferenceControl {
+                    Spacer(minLength: 24)
                     referenceControl
                 }
             }
