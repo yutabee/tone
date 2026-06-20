@@ -1,49 +1,93 @@
-# Optional convenience lanes. The pure-Xcode path in docs/RELEASE.md is the
-# source of truth; these wrap it for one-command runs once you are authenticated.
+# Release automation for Tone.
 #
-# Auth: create an App Store Connect API key and export before running:
-#   export ASC_KEY_ID=...  ASC_ISSUER_ID=...  ASC_KEY_PATH=AuthKey_XXX.p8
+# Auth is MANUAL (no App Store Connect API key shared). You authenticate once with
+# 2FA via spaceauth, then these lanes run non-interactively using the session.
 #
-# Prereqs: `brew install fastlane xcodegen` and a Team ID set in project.yml.
+# One-time per machine / ~monthly when the session expires:
+#   brew install fastlane xcodegen
+#   export DEVELOPMENT_TEAM=XXXXXXXXXX                       # 10-char Team ID
+#   export FASTLANE_USER=info@syncbloom.jp                   # Apple ID
+#   export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx  # appleid.apple.com → App-Specific Passwords (binary upload)
+#   export FASTLANE_SESSION="$(fastlane spaceauth -u "$FASTLANE_USER")"      # complete 2FA in the prompt; paste the printed value
+#
+# Then: `bundle exec fastlane release`  (or `fastlane release`)
 
 default_platform(:ios)
 
-ASC_KEY = lambda do
-  app_store_connect_api_key(
-    key_id: ENV.fetch("ASC_KEY_ID"),
-    issuer_id: ENV.fetch("ASC_ISSUER_ID"),
-    key_filepath: ENV.fetch("ASC_KEY_PATH")
-  )
+APP_ID = "jp.syncbloom.tone"
+
+def require_env!(keys)
+  missing = keys.reject { |k| ENV[k] && !ENV[k].empty? }
+  UI.user_error!("Missing env: #{missing.join(', ')} — see the header of fastlane/Fastfile") unless missing.empty?
 end
 
 platform :ios do
-  desc "Regenerate the Xcode project, archive Release, and export an App Store .ipa"
+  desc "Regenerate the Xcode project and archive a signed App Store .ipa"
   lane :build do
+    require_env!(%w[DEVELOPMENT_TEAM])
     sh("cd .. && xcodegen generate")
     build_app(
       project: "Tone.xcodeproj",
       scheme: "Tone",
       configuration: "Release",
-      export_method: "app-store-connect",
+      export_method: "app-store",
       output_directory: "build/export",
-      output_name: "Tone.ipa"
+      output_name: "Tone.ipa",
+      xcargs: "-allowProvisioningUpdates"
     )
   end
 
-  desc "Build and upload the binary to App Store Connect (TestFlight)"
-  lane :beta do
-    build
-    upload_to_testflight(api_key: ASC_KEY.call, skip_waiting_for_build_processing: true)
+  desc "Create the App Store Connect record if it does not exist yet (idempotent)"
+  lane :ensure_app do
+    require_env!(%w[FASTLANE_USER DEVELOPMENT_TEAM])
+    begin
+      produce(app_identifier: APP_ID, app_name: "Tone", language: "English",
+              skip_itc: false, skip_devcenter: false)
+    rescue => e
+      UI.message("produce skipped (app likely already exists): #{e.message}")
+    end
   end
 
-  desc "Upload metadata + screenshots from fastlane/ to App Store Connect (no submit)"
+  desc "Upload metadata + screenshots only (no binary, no submit)"
   lane :metadata do
+    require_env!(%w[FASTLANE_USER])
     upload_to_app_store(
-      api_key: ASC_KEY.call,
+      app_identifier: APP_ID,
       skip_binary_upload: true,
+      overwrite_screenshots: true,
       submit_for_review: false,
+      force: true,
       precheck_include_in_app_purchases: false,
-      force: true
+      metadata_path: "./fastlane/metadata",
+      screenshots_path: "./fastlane/screenshots"
+    )
+  end
+
+  desc "Build + upload to TestFlight (no public release)"
+  lane :beta do
+    build
+    upload_to_testflight(app_identifier: APP_ID, skip_waiting_for_build_processing: true)
+  end
+
+  desc "FULL: ensure app → build+sign → upload binary + metadata + screenshots → submit for review"
+  lane :release do
+    require_env!(%w[FASTLANE_USER DEVELOPMENT_TEAM FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD])
+    ensure_app
+    build
+    upload_to_app_store(
+      app_identifier: APP_ID,
+      ipa: "build/export/Tone.ipa",
+      force: true,                       # skip the HTML preview/confirm
+      overwrite_screenshots: true,
+      submit_for_review: true,           # ← irreversible; gate this in your runbook
+      automatic_release_after_approval: false,
+      precheck_include_in_app_purchases: false,
+      submission_information: {
+        export_compliance_uses_encryption: false,
+        add_id_info_uses_idfa: false
+      },
+      metadata_path: "./fastlane/metadata",
+      screenshots_path: "./fastlane/screenshots"
     )
   end
 end
