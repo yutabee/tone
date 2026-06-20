@@ -10,6 +10,7 @@ struct CentsScale: View {
     let theme: ToneTheme
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private let inset: CGFloat = 10
 
@@ -22,6 +23,8 @@ struct CentsScale: View {
             let hasReading = cents != nil
             let clamped = Double(min(max(cents ?? 0, -50), 50))
             let indicatorX = midX + CGFloat(clamped / 50) * usable
+            // ロック時のみ、深い背景に対して中央 tick と indicator が発光する(dark / 標準コントラスト)。
+            let glow = inTune && theme.prefersDepthEffects && !reduceTransparency
 
             ZStack(alignment: .topLeading) {
                 Canvas { context, size in
@@ -36,7 +39,14 @@ struct CentsScale: View {
                         var path = Path()
                         path.move(to: CGPoint(x: x, y: centerY - tickHeight / 2))
                         path.addLine(to: CGPoint(x: x, y: centerY + tickHeight / 2))
-                        context.stroke(path, with: .color(color), lineWidth: ToneMetrics.hairline)
+                        if isCenter && glow {
+                            context.drawLayer { layer in
+                                layer.addFilter(.shadow(color: theme.signal.opacity(0.7), radius: 6))
+                                layer.stroke(path, with: .color(color), lineWidth: ToneMetrics.hairline)
+                            }
+                        } else {
+                            context.stroke(path, with: .color(color), lineWidth: ToneMetrics.hairline)
+                        }
                     }
                 }
 
@@ -44,6 +54,8 @@ struct CentsScale: View {
                     Capsule(style: .continuous)
                         .fill(inTune ? theme.signal : theme.ink)
                         .frame(width: ToneMetrics.indicatorWidth, height: height)
+                        .shadow(color: theme.signal.opacity(glow ? 0.6 : 0), radius: glow ? 8 : 0)
+                        .shadow(color: theme.signal.opacity(glow ? 0.32 : 0), radius: glow ? 16 : 0)
                         .position(x: indicatorX, y: height / 2)
                         .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.82), value: clamped)
                         .animation(.easeInOut(duration: 0.18), value: inTune)

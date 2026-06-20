@@ -11,6 +11,8 @@ public struct TunerScreen: View {
     private let model: TunerViewModel
 
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.scenePhase) private var scenePhase
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 132
     @State private var hasStarted = false
@@ -22,11 +24,19 @@ public struct TunerScreen: View {
         self.model = model
     }
 
-    private var theme: ToneTheme { ToneTheme(scheme: scheme) }
+    private var theme: ToneTheme { ToneTheme(scheme: scheme, contrast: contrast) }
+
+    /// 発光(in-tune の signature)を許可する条件: dark / 標準コントラスト / 透明度を減らさない。
+    private var glowEnabled: Bool { theme.prefersDepthEffects && !reduceTransparency }
 
     public var body: some View {
         ZStack {
-            theme.paper.ignoresSafeArea()
+            LinearGradient(
+                colors: [theme.paperTop, theme.paperBottom],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 topBar
@@ -144,6 +154,11 @@ public struct TunerScreen: View {
             Text(note?.name.displayText ?? "\u{2013}")    // – when no reading
             .font(.system(size: heroSize, weight: .medium))
                 .foregroundStyle(inTune ? theme.signal : theme.ink)
+                // in-tune の瞬間だけ、深い背景に対して signal が灯る二段の emissive bloom。
+                .shadow(color: theme.signal.opacity(inTune && glowEnabled ? 0.42 : 0),
+                        radius: inTune && glowEnabled ? 16 : 0)
+                .shadow(color: theme.signal.opacity(inTune && glowEnabled ? 0.20 : 0),
+                        radius: inTune && glowEnabled ? 34 : 0)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
                 .animation(.easeInOut(duration: 0.18), value: inTune)
