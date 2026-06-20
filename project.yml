@@ -42,6 +42,16 @@ targets:
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: "YES"
       configs:
         # Debug / simulator / CI は署名不要(contributor が team 無しでもビルド可)。
-        # Release は base の Automatic 署名で App Store 配信用に署名する。
         Debug:
           CODE_SIGNING_ALLOWED: "NO"
+        # Release は手動署名で App Store 配信用に署名する。
+        # 署名設定を「Tone ターゲット」に限定するのが要点:
+        # xcargs でグローバル指定すると SPM 依存(Tonic / AudioKit)にも
+        # PROVISIONING_PROFILE_SPECIFIER が波及し "does not support provisioning
+        # profiles" で archive が失敗する。target-config スコープなら波及しない。
+        # 事前に配布証明書 "Apple Distribution" と profile "Tone App Store" を
+        # ローカルに install しておくこと(手順は docs/RELEASE.md)。
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "Apple Distribution"
+          PROVISIONING_PROFILE_SPECIFIER: "Tone App Store"

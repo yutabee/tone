@@ -38,18 +38,19 @@ end
 
 platform :ios do
   desc "Regenerate the Xcode project and archive a signed App Store .ipa"
+  # 署名は手動(manual)。事前に作成・インストール済みの配布アセットを使う:
+  #   - 証明書: "Apple Distribution: <name> (<team id>)"(login keychain)
+  #   - プロファイル: "Tone App Store"(App Store / com.yutabee.tone)
+  # クラウド署名(API キーで証明書を自動生成)は API キーの App Manager ロールでは
+  # 証明書を作成できず exportArchive で失敗するため、明示 manual 署名に倒している。
+  # archive 段の署名設定は project.yml の Tone ターゲット Release config が持つ
+  # (xcargs でグローバル指定すると SPM 依存にも波及し archive が失敗するため)。
+  # この lane は export 段の署名のみ export_options で manual 指定する。
+  PROVISIONING_PROFILE_NAME = "Tone App Store"
   lane :build do
-    require_env!(%w[DEVELOPMENT_TEAM ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_FILEPATH])
+    require_env!(%w[DEVELOPMENT_TEAM])
+    team = ENV.fetch("DEVELOPMENT_TEAM")
     sh("cd .. && xcodegen generate")
-    # NOTE: build_app(gym)は `api_key:` を受け付けない(API キーは deliver/pilot 等の
-    # upload 系専用)。署名の自動プロビジョニングに必要な App Store Connect 認証は、
-    # xcodebuild へ `-authenticationKey*` 引数として直接渡す(archive / export 両方で有効)。
-    auth_xcargs = [
-      "-allowProvisioningUpdates",
-      "-authenticationKeyPath #{ENV.fetch('ASC_KEY_FILEPATH')}",
-      "-authenticationKeyID #{ENV.fetch('ASC_KEY_ID')}",
-      "-authenticationKeyIssuerID #{ENV.fetch('ASC_ISSUER_ID')}"
-    ].join(" ")
     build_app(
       project: "Tone.xcodeproj",
       scheme: "Tone",
@@ -57,7 +58,14 @@ platform :ios do
       export_method: "app-store",
       output_directory: "build/export",
       output_name: "Tone.ipa",
-      xcargs: auth_xcargs
+      export_options: {
+        method: "app-store",
+        signingStyle: "manual",
+        teamID: team,
+        provisioningProfiles: {
+          APP_ID => PROVISIONING_PROFILE_NAME
+        }
+      }
     )
   end
 
