@@ -2,34 +2,82 @@ import SwiftUI
 import ToneCore
 
 /// スイス派ミニマルの視覚トークン。monochrome ink/paper + 単一の signal(in-tune)アクセント。
-/// 配色は light/dark に適応する(`colorScheme` から解決)。
+/// dark は「夜の計測器」を志向する: 上方からの淡い光で奥行きを与え、ロックの瞬間だけ signal が
+/// 発光する。配色は `colorScheme` と `colorSchemeContrast` から解決し、increase-contrast 時は
+/// 奥行き演出を畳んで純粋な可読性に倒す。
 struct ToneTheme {
     let scheme: ColorScheme
+    var contrast: ColorSchemeContrast = .standard
 
-    /// 背景(紙)。
+    var isDark: Bool { scheme == .dark }
+    private var highContrast: Bool { contrast == .increased }
+
+    /// dark かつ標準コントラストのときだけ奥行き演出(背景グラデーション/発光)を許可する。
+    var prefersDepthEffects: Bool { isDark && !highContrast }
+
+    // MARK: - Surfaces
+
+    /// 背景の基準単色(capsule 文字色・フォールバックに使う)。
     var paper: Color {
-        scheme == .dark ? Color(red: 0.051, green: 0.051, blue: 0.059)
-                        : Color(red: 0.961, green: 0.961, blue: 0.949)
+        isDark ? rgb(0.055, 0.059, 0.071) : rgb(0.961, 0.961, 0.949)
     }
-    /// 主要素(音名・indicator)。
+    /// 背景グラデーション上端。dark は上方からの淡い光、light / 高コントラストは paper と同値=フラット。
+    var paperTop: Color {
+        prefersDepthEffects ? rgb(0.090, 0.094, 0.110) : paper
+    }
+    /// 背景グラデーション下端。
+    var paperBottom: Color {
+        prefersDepthEffects ? rgb(0.039, 0.043, 0.055) : paper
+    }
+
+    // MARK: - Ink
+
+    /// 主要素(音名・indicator)。dark は眩しさを避けた bone white(わずかに暖色)。
     var ink: Color {
-        scheme == .dark ? Color(red: 0.929, green: 0.929, blue: 0.918)
-                        : Color(red: 0.102, green: 0.102, blue: 0.118)
+        if isDark { return highContrast ? rgb(0.976, 0.976, 0.965) : rgb(0.914, 0.906, 0.882) }
+        return highContrast ? rgb(0.039, 0.039, 0.047) : rgb(0.102, 0.102, 0.118)
     }
     /// 二次情報(ラベル・cents 数値)。
     var muted: Color {
-        scheme == .dark ? Color(red: 0.541, green: 0.541, blue: 0.557)
-                        : Color(red: 0.482, green: 0.482, blue: 0.471)
+        if isDark { return highContrast ? rgb(0.710, 0.718, 0.745) : rgb(0.553, 0.561, 0.592) }
+        return highContrast ? rgb(0.353, 0.353, 0.345) : rgb(0.482, 0.482, 0.471)
     }
-    /// 目盛りの細線。
+    /// 目盛りの細線(etched hairline)。
     var faint: Color {
-        scheme == .dark ? Color(red: 0.231, green: 0.231, blue: 0.247)
-                        : Color(red: 0.812, green: 0.812, blue: 0.796)
+        if isDark { return highContrast ? rgb(0.392, 0.404, 0.427) : rgb(0.196, 0.208, 0.227) }
+        return highContrast ? rgb(0.659, 0.659, 0.643) : rgb(0.812, 0.812, 0.796)
     }
+
+    // MARK: - Signal (in-tune)
+
     /// in-tune のときだけ現れる単一アクセント(emerald-teal、acid green を避ける)。
+    /// dark は発光に耐えるよう僅かに luminance を上げる。
     var signal: Color {
-        scheme == .dark ? Color(red: 0.114, green: 0.820, blue: 0.631)
-                        : Color(red: 0.000, green: 0.722, blue: 0.580)
+        isDark ? rgb(0.125, 0.855, 0.655) : rgb(0.000, 0.722, 0.580)
+    }
+
+    // MARK: - Liquid Glass(材質と光)
+
+    /// 色付き背景グラデーション。ガラスが屈折する“素地”を与える。
+    var bgTop: Color { isDark ? rgb(0.082, 0.086, 0.110) : rgb(0.984, 0.980, 0.965) }
+    var bgBottom: Color { isDark ? rgb(0.035, 0.039, 0.059) : rgb(0.925, 0.918, 0.902) }
+
+    /// 背景に滲む 2 つの光(dark: teal + indigo)。ガラス面に色味の depth を映す。
+    var haloPrimary: Color { isDark ? rgb(0.071, 0.624, 0.494) : rgb(0.000, 0.722, 0.580) }
+    var haloSecondary: Color { isDark ? rgb(0.243, 0.255, 0.561) : rgb(0.490, 0.529, 0.961) }
+
+    /// ガラス面の specular edge(上端=明 / 下端=暗)。
+    var glassEdgeTop: Color { isDark ? Color.white.opacity(0.30) : Color.white.opacity(0.90) }
+    var glassEdgeBottom: Color { isDark ? Color.white.opacity(0.04) : Color.black.opacity(0.06) }
+
+    /// reduce-transparency 時のガラス代替(不透明な elevated 面)。
+    var solidPanel: Color { isDark ? rgb(0.110, 0.118, 0.149) : rgb(1.000, 1.000, 1.000) }
+
+    /// パネルの落ち影(奥行き)。
+    var cardShadow: Color { isDark ? Color.black.opacity(0.45) : Color.black.opacity(0.12) }
+
+    private func rgb(_ r: Double, _ g: Double, _ b: Double) -> Color {
+        Color(red: r, green: g, blue: b)
     }
 }
 
