@@ -36,10 +36,10 @@ struct ToneTheme {
     var meterFaceBottom: Color { rgb(0.118, 0.129, 0.149) }
 
     /// 計器面の弧(rim、etched)。
-    var meterRim: Color { Color.white.opacity(highContrast ? 0.55 : 0.22) }
+    var meterRim: Color { Color.white.opacity(highContrast ? 0.55 : 0.28) }
     /// 目盛り(major=濃 / minor=淡)。
     var tickMajor: Color { Color.white.opacity(highContrast ? 0.95 : 0.62) }
-    var tickMinor: Color { Color.white.opacity(highContrast ? 0.55 : 0.26) }
+    var tickMinor: Color { Color.white.opacity(highContrast ? 0.55 : 0.32) }
 
     /// 針(検出時 = bone white / 休止時 = 減光)。in-tune では signal に置換される。
     var needle: Color { highContrast ? rgb(0.992, 0.988, 0.976) : rgb(0.922, 0.902, 0.863) }
@@ -50,7 +50,7 @@ struct ToneTheme {
     var ledAmber: Color { rgb(0.965, 0.620, 0.227) }
 
     /// 筐体上の二次テキスト(ブランド刻印・REF ラベル)。dark 筐体専用なので scheme 非依存。
-    var faceMuted: Color { highContrast ? rgb(0.769, 0.788, 0.824) : rgb(0.553, 0.576, 0.620) }
+    var faceMuted: Color { highContrast ? rgb(0.769, 0.788, 0.824) : rgb(0.604, 0.627, 0.671) }
 
     /// 筐体角のネジ(さりげなく)。
     var screw: Color { rgb(0.306, 0.318, 0.353) }
