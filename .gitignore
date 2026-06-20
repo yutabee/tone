@@ -10,5 +10,8 @@ xcuserdata/
 .build/
 .swiftpm/
 
+# xcodegen が project.yml から生成(SSOT は project.yml)
+*.xcodeproj
+
 # macOS
 .DS_Store
