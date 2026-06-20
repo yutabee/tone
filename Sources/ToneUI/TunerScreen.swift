@@ -14,7 +14,7 @@ public struct TunerScreen: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.scenePhase) private var scenePhase
-    @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 132
+    @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 92
     @State private var hasStarted = false
 
     private let copy = TunerCopy()
@@ -26,19 +26,18 @@ public struct TunerScreen: View {
 
     private var theme: ToneTheme { ToneTheme(scheme: scheme, contrast: contrast) }
 
-    /// 発光(in-tune の signature)を許可する条件: dark / 標準コントラスト / 透明度を減らさない。
-    private var glowEnabled: Bool { theme.prefersDepthEffects && !reduceTransparency }
+    /// 筐体上の発光(in-tune の signature)を許可する条件。筐体は常に dark なので scheme には
+    /// 依らず、標準コントラスト / 透明度を減らさない場合のみ灯す。
+    private var deviceGlow: Bool { theme.prefersGlow && !reduceTransparency }
 
     public var body: some View {
         ZStack {
             background
 
             VStack(spacing: 0) {
-                topBar
                 Spacer(minLength: 0)
                 center
                 Spacer(minLength: 0)
-                Color.clear.frame(height: 24)
             }
             .padding(.horizontal, ToneMetrics.screenPadding)
             .padding(.vertical, ToneMetrics.screenPadding)
@@ -88,58 +87,89 @@ public struct TunerScreen: View {
         .ignoresSafeArea()
     }
 
-    // MARK: - Glass surface
+    // MARK: - Faceplate(筐体)
 
-    /// 半透明ガラス面(.ultraThinMaterial)+ specular edge + 落ち影。
-    /// reduce-transparency では不透明 elevated 面に畳む。
-    private func glassPanel<Content: View>(
-        cornerRadius: CGFloat,
-        tinted: Bool = false,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    /// グラファイトの筐体。上=明 / 下=暗のブラッシュド面、外周の面取り、四隅のネジ、落ち影。
+    /// reduce-transparency でも筐体は不透明な塗りなのでそのまま成立する(影だけ畳む)。
+    private func faceplate<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 34, style: .continuous)
         return content()
+            .padding(.horizontal, 24)
+            .padding(.vertical, 26)
+            .frame(maxWidth: .infinity)
             .background {
-                if reduceTransparency {
-                    shape.fill(theme.solidPanel)
-                } else {
-                    shape.fill(.ultraThinMaterial)
-                }
-                if tinted {
-                    shape.fill(theme.signal.opacity(reduceTransparency ? 0.20 : 0.12))
-                }
+                shape.fill(
+                    LinearGradient(colors: [theme.faceTop, theme.faceBottom],
+                                   startPoint: .top, endPoint: .bottom)
+                )
             }
             .overlay {
                 shape.strokeBorder(
-                    LinearGradient(
-                        colors: [theme.glassEdgeTop, theme.glassEdgeBottom],
-                        startPoint: .top, endPoint: .bottom
-                    ),
+                    LinearGradient(colors: [theme.bezelHighlight, theme.bezelShadow],
+                                   startPoint: .top, endPoint: .bottom),
+                    lineWidth: 1.5
+                )
+            }
+            .overlay(alignment: .topLeading) { screw }
+            .overlay(alignment: .topTrailing) { screw }
+            .overlay(alignment: .bottomLeading) { screw }
+            .overlay(alignment: .bottomTrailing) { screw }
+            .shadow(color: reduceTransparency ? .clear : Color.black.opacity(0.5),
+                    radius: reduceTransparency ? 0 : 32, y: reduceTransparency ? 0 : 20)
+            .frame(maxWidth: 380)
+    }
+
+    /// 筐体角のネジ(マイナス溝)。装飾だが「機材」の記号として効く。VoiceOver からは隠す。
+    private var screw: some View {
+        Circle()
+            .fill(
+                RadialGradient(colors: [theme.screw, Color.black.opacity(0.7)],
+                               center: .topLeading, startRadius: 0, endRadius: 7)
+            )
+            .frame(width: 9, height: 9)
+            .overlay(
+                Capsule().fill(Color.black.opacity(0.5))
+                    .frame(width: 6, height: 1.2)
+                    .rotationEffect(.degrees(45))
+            )
+            .padding(13)
+            .accessibilityHidden(true)
+    }
+
+    /// 計器窓(recessed)。針メーターを沈める。in-tune で signal の微かな色味が乗る。
+    private func meterWindow<Content: View>(tinted: Bool, @ViewBuilder content: () -> Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        return content()
+            .background {
+                shape.fill(
+                    LinearGradient(colors: [theme.meterFaceTop, theme.meterFaceBottom],
+                                   startPoint: .top, endPoint: .bottom)
+                )
+                if tinted {
+                    shape.fill(theme.signal.opacity(0.10))
+                }
+            }
+            .overlay {
+                // 上=暗 / 下=明 で「沈んだ」インセット感を出す。
+                shape.strokeBorder(
+                    LinearGradient(colors: [Color.black.opacity(0.55), Color.white.opacity(0.06)],
+                                   startPoint: .top, endPoint: .bottom),
                     lineWidth: 1
                 )
             }
-            .shadow(
-                color: reduceTransparency ? .clear : theme.cardShadow,
-                radius: reduceTransparency ? 0 : 26, y: reduceTransparency ? 0 : 16
-            )
     }
 
-    // MARK: - Top bar
-
-    private var topBar: some View {
-        HStack(alignment: .firstTextBaseline) {
+    /// 筐体上端の刻印行(ブランド + 種別)。
+    private var faceplateHeader: some View {
+        HStack {
             Text("TONE")
-                .font(.system(size: 13, weight: .semibold))
-                .tracking(3)
-                .foregroundStyle(theme.muted)
-                .accessibilityHidden(true)
-
+                .font(.system(size: 12, weight: .bold)).tracking(4)
             Spacer()
-
-            if showsReferenceControl {
-                referenceControl
-            }
+            Text("CHROMATIC")
+                .font(.system(size: 10, weight: .semibold)).tracking(3)
         }
+        .foregroundStyle(theme.faceMuted)
+        .accessibilityHidden(true)
     }
 
     private var showsReferenceControl: Bool {
@@ -149,49 +179,38 @@ public struct TunerScreen: View {
         }
     }
 
+    /// REF ステッパー(筐体下部)。− A440 Hz + を機材のラベル調で。
     private var referenceControl: some View {
-        let shape = Capsule(style: .continuous)
-        return HStack(spacing: 12) {
+        HStack(spacing: 14) {
             referenceButton(symbol: "minus", label: copy.lowerReference) {
                 model.setReferenceA4(model.referenceA4 - 1)
             }
             Text(copy.reference(model.referenceA4))
-                .font(.system(.footnote, design: .rounded).weight(.medium))
-                .foregroundStyle(theme.ink)
+                .font(.system(.footnote, design: .monospaced).weight(.medium))
+                .foregroundStyle(theme.needle)
                 .monospacedDigit()
                 .accessibilityLabel(copy.reference(model.referenceA4))
             referenceButton(symbol: "plus", label: copy.raiseReference) {
                 model.setReferenceA4(model.referenceA4 + 1)
             }
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
         .background {
-            if reduceTransparency {
-                shape.fill(theme.solidPanel)
-            } else {
-                shape.fill(.ultraThinMaterial)
-            }
+            Capsule(style: .continuous).fill(Color.black.opacity(0.28))
         }
         .overlay {
-            shape.strokeBorder(
-                LinearGradient(
-                    colors: [theme.glassEdgeTop, theme.glassEdgeBottom],
-                    startPoint: .top, endPoint: .bottom
-                ),
-                lineWidth: 1
-            )
+            Capsule(style: .continuous)
+                .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
         }
-        .shadow(color: reduceTransparency ? .clear : theme.cardShadow,
-                radius: reduceTransparency ? 0 : 12, y: reduceTransparency ? 0 : 6)
     }
 
     private func referenceButton(symbol: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(theme.ink)
-                .frame(width: 32, height: 32)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.faceMuted)
+                .frame(width: 30, height: 30)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel(label)
@@ -220,33 +239,50 @@ public struct TunerScreen: View {
     // MARK: - Tuning / listening
 
     private func tuningLayout(note: ResolvedNote?, inTune: Bool) -> some View {
-        glassPanel(cornerRadius: 36, tinted: inTune) {
-            VStack(spacing: 26) {
-                noteHero(note: note, inTune: inTune)
-                centsReadout(note: note)
-                CentsScale(cents: note?.cents, inTune: inTune, theme: theme)
-                directionLabel(note: note, inTune: inTune)
+        faceplate {
+            VStack(spacing: 20) {
+                faceplateHeader
+
+                meterWindow(tinted: inTune) {
+                    VStack(spacing: 2) {
+                        NeedleGauge(cents: note?.cents, inTune: inTune, theme: theme)
+                        HStack {
+                            Text("\u{266D}")        // flat 端ラベル
+                            Spacer()
+                            Text("\u{266F}")        // sharp 端ラベル
+                        }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(theme.faceMuted)
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.top, 16)
+                    .padding(.bottom, 12)
+                }
+
+                lcdReadout(note: note, inTune: inTune)
+                ledRow(note: note, inTune: inTune)
+
+                if showsReferenceControl {
+                    referenceControl
+                }
             }
-            .padding(.vertical, 40)
-            .padding(.horizontal, 32)
-            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: 380)
         .animation(.easeInOut(duration: 0.25), value: inTune)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription(note: note, inTune: inTune))
     }
 
-    private func noteHero(note: ResolvedNote?, inTune: Bool) -> some View {
+    /// 音名の LCD 読み取り部。検出時は bone、in-tune では signal に灯る。横に cents 値を添える。
+    private func lcdReadout(note: ResolvedNote?, inTune: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(note?.name.displayText ?? "\u{2013}")    // – when no reading
-            .font(.system(size: heroSize, weight: .semibold, design: .rounded))
-                .foregroundStyle(inTune ? theme.signal : theme.ink)
-                // in-tune の瞬間だけ、深い背景に対して signal が灯る二段の emissive bloom。
-                .shadow(color: theme.signal.opacity(inTune && glowEnabled ? 0.42 : 0),
-                        radius: inTune && glowEnabled ? 16 : 0)
-                .shadow(color: theme.signal.opacity(inTune && glowEnabled ? 0.20 : 0),
-                        radius: inTune && glowEnabled ? 34 : 0)
+                .font(.system(size: heroSize, weight: .semibold, design: .rounded))
+                .foregroundStyle(inTune ? theme.signal : theme.needle)
+                // in-tune の瞬間だけ二段の emissive bloom で signal が灯る。
+                .shadow(color: theme.signal.opacity(inTune && deviceGlow ? 0.42 : 0),
+                        radius: inTune && deviceGlow ? 16 : 0)
+                .shadow(color: theme.signal.opacity(inTune && deviceGlow ? 0.20 : 0),
+                        radius: inTune && deviceGlow ? 34 : 0)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
                 .animation(.easeInOut(duration: 0.18), value: inTune)
@@ -254,33 +290,47 @@ public struct TunerScreen: View {
             if let octave = note?.octave {
                 Text("\(octave)")
                     .font(.system(size: heroSize * 0.34, weight: .medium, design: .rounded))
-                    .foregroundStyle(theme.muted)
+                    .foregroundStyle(theme.faceMuted)
                     .lineLimit(1)
             }
+
+            Text(note.map { String(format: "%+d\u{00A2}", $0.cents) } ?? "")
+                .font(.system(.callout, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(theme.faceMuted)
+                .padding(.leading, 4)
         }
+        .accessibilityHidden(true)
     }
 
-    private func centsReadout(note: ResolvedNote?) -> some View {
-        Text(note.map { String(format: "%+d\u{00A2}", $0.cents) } ?? " ")
-            .font(.system(.title3, design: .monospaced))
-            .monospacedDigit()
-            .foregroundStyle(theme.muted)
-            .accessibilityHidden(true)
+    /// LED 列: ♭(amber) ─ IN TUNE(signal) ─ ♯(amber)。状態に応じて 1 つだけ灯る。
+    private func ledRow(note: ResolvedNote?, inTune: Bool) -> some View {
+        let cents = note?.cents
+        let flatOn = note != nil && !inTune && (cents ?? 0) < 0
+        let sharpOn = note != nil && !inTune && (cents ?? 0) > 0
+        return HStack(spacing: 0) {
+            led(label: copy.flat.uppercased(), on: flatOn, color: theme.ledAmber)
+            Spacer()
+            led(label: copy.inTune.uppercased(), on: inTune, color: theme.signal)
+            Spacer()
+            led(label: copy.sharp.uppercased(), on: sharpOn, color: theme.ledAmber)
+        }
+        .padding(.horizontal, 6)
+        .accessibilityHidden(true)
     }
 
-    private func directionLabel(note: ResolvedNote?, inTune: Bool) -> some View {
-        Text(directionText(note: note, inTune: inTune))
-            .font(.system(size: 13, weight: .semibold))
-            .tracking(2)
-            .foregroundStyle(inTune ? theme.signal : theme.muted)
-            .animation(.easeInOut(duration: 0.18), value: inTune)
-            .accessibilityHidden(true)
-    }
-
-    private func directionText(note: ResolvedNote?, inTune: Bool) -> String {
-        guard let note else { return copy.listening.uppercased() }
-        if inTune { return copy.inTune.uppercased() }
-        return (note.cents < 0 ? copy.flat : copy.sharp).uppercased()
+    private func led(label: String, on: Bool, color: Color) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(on ? color : theme.ledOff)
+                .frame(width: 8, height: 8)
+                .shadow(color: on && deviceGlow ? color.opacity(0.85) : .clear,
+                        radius: on && deviceGlow ? 5 : 0)
+            Text(label)
+                .font(.system(size: 11, weight: .semibold)).tracking(1.5)
+                .foregroundStyle(on ? color : theme.faceMuted)
+        }
+        .animation(.easeInOut(duration: 0.18), value: on)
     }
 
     private func accessibilityDescription(note: ResolvedNote?, inTune: Bool) -> String {
@@ -291,9 +341,16 @@ public struct TunerScreen: View {
     // MARK: - Other states
 
     private func statusMessage(_ text: String) -> some View {
-        Text(text)
-            .font(.system(.body))
-            .foregroundStyle(theme.muted)
+        faceplate {
+            VStack(spacing: 16) {
+                faceplateHeader
+                Text(text)
+                    .font(.system(.body))
+                    .foregroundStyle(theme.faceMuted)
+                    .multilineTextAlignment(.center)
+                    .padding(.vertical, 24)
+            }
+        }
     }
 
     private var permissionDenied: some View {
@@ -310,26 +367,29 @@ public struct TunerScreen: View {
     }
 
     private func messageBlock(title: String, body: String, actionTitle: String, action: @escaping () -> Void) -> some View {
-        VStack(spacing: 16) {
-            Text(title)
-                .font(.system(.title3, weight: .semibold))
-                .foregroundStyle(theme.ink)
-                .multilineTextAlignment(.center)
-            Text(body)
-                .font(.system(.subheadline))
-                .foregroundStyle(theme.muted)
-                .multilineTextAlignment(.center)
-            Button(action: action) {
-                Text(actionTitle)
-                    .font(.system(.body, weight: .medium))
-                    .foregroundStyle(theme.paper)
-                    .padding(.horizontal, 22)
-                    .padding(.vertical, 12)
-                    .background(theme.ink, in: Capsule(style: .continuous))
+        faceplate {
+            VStack(spacing: 16) {
+                faceplateHeader
+                Text(title)
+                    .font(.system(.title3, weight: .semibold))
+                    .foregroundStyle(theme.needle)
+                    .multilineTextAlignment(.center)
+                Text(body)
+                    .font(.system(.subheadline))
+                    .foregroundStyle(theme.faceMuted)
+                    .multilineTextAlignment(.center)
+                Button(action: action) {
+                    Text(actionTitle)
+                        .font(.system(.body, weight: .semibold))
+                        .foregroundStyle(theme.faceBottom)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 12)
+                        .background(theme.needle, in: Capsule(style: .continuous))
+                }
+                .padding(.top, 4)
             }
-            .padding(.top, 4)
+            .padding(.vertical, 8)
         }
-        .frame(maxWidth: 360)
     }
 
     private func openSystemSettings() {
