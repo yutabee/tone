@@ -296,13 +296,12 @@ public struct TunerScreen: View {
         .accessibilityLabel(accessibilityDescription(note: note, inTune: inTune))
     }
 
-    /// 周波数読み取り: 検出 Hz → 目標 Hz。目標は検出値と cents から算出(target = f·2^(-cents/1200))。
+    /// 周波数読み取り: 検出 Hz → 目標 Hz。目標は丸め cents 逆算ではなく ResolvedNote の
+    /// 厳密な targetFrequency(基準音の 0¢ 周波数)を表示する。
     private func frequencyReadout(note: ResolvedNote?) -> some View {
         let placeholder = "\u{2013}\u{2013}\u{2013}.\u{2013}"
         let detected = note.map { String(format: "%.1f", $0.frequency) } ?? placeholder
-        let target = note.map {
-            String(format: "%.1f", $0.frequency * pow(2.0, -Double($0.cents) / 1200.0))
-        } ?? placeholder
+        let target = note.map { String(format: "%.1f", $0.targetFrequency) } ?? placeholder
         return HStack(spacing: 12) {
             freqCell(caption: copy.detected, value: detected, strong: true)
             Image(systemName: "arrow.right")
