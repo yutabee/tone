@@ -223,7 +223,11 @@ public struct TunerScreen: View {
             VStack(spacing: 0) {
                 faceplateHeader
 
-                Spacer(minLength: 16)
+                Spacer(minLength: 20)
+
+                lcdReadout(note: note, inTune: inTune)
+
+                Spacer(minLength: 22)
 
                 meterWindow(tinted: inTune) {
                     VStack(spacing: 4) {
@@ -240,10 +244,6 @@ public struct TunerScreen: View {
                     .padding(.top, 22)
                     .padding(.bottom, 16)
                 }
-
-                Spacer(minLength: 22)
-
-                lcdReadout(note: note, inTune: inTune)
 
                 Spacer(minLength: 22)
 
