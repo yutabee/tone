@@ -240,6 +240,7 @@ public struct TunerScreen: View {
                         }
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(theme.faceMuted)
+                        .accessibilityHidden(true)   // 装飾の計器端ラベル。集約 label に含めない。
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 22)
@@ -316,7 +317,7 @@ public struct TunerScreen: View {
     private func freqCell(caption: String, value: String, strong: Bool) -> some View {
         VStack(spacing: 3) {
             Text(caption.uppercased())
-                .font(.system(size: 9, weight: .semibold)).tracking(1.5)
+                .font(.system(.caption2, design: .default).weight(.semibold)).tracking(1.5)
                 .foregroundStyle(theme.faceMuted)
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
@@ -324,7 +325,7 @@ public struct TunerScreen: View {
                     .monospacedDigit()
                     .foregroundStyle(strong ? theme.needle : theme.faceMuted)
                 Text("Hz")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(.caption2).weight(.medium))
                     .foregroundStyle(theme.faceMuted)
             }
         }
@@ -363,7 +364,7 @@ public struct TunerScreen: View {
                 .shadow(color: on && deviceGlow ? color.opacity(0.85) : .clear,
                         radius: on && deviceGlow ? 5 : 0)
             Text(label)
-                .font(.system(size: 11, weight: .semibold)).tracking(1.5)
+                .font(.system(.caption2).weight(.semibold)).tracking(1.5)
                 .foregroundStyle(on ? color : theme.faceMuted)
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: on)
