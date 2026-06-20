@@ -31,12 +31,7 @@ public struct TunerScreen: View {
 
     public var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [theme.paperTop, theme.paperBottom],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            background
 
             VStack(spacing: 0) {
                 topBar
@@ -48,6 +43,8 @@ public struct TunerScreen: View {
             .padding(.horizontal, ToneMetrics.screenPadding)
             .padding(.vertical, ToneMetrics.screenPadding)
         }
+        // ロックの瞬間にハプティクスで“はまった”手応えを返す(主流の iOS 体験)。
+        .sensoryFeedback(trigger: isInTune) { _, now in now ? .success : nil }
         .task {
             await model.onAppear()
             hasStarted = true
@@ -61,6 +58,70 @@ public struct TunerScreen: View {
             default: break
             }
         }
+    }
+
+    private var isInTune: Bool {
+        if case let .tuning(_, inTune) = model.state { return inTune }
+        return false
+    }
+
+    // MARK: - Background(色付きグラデ + 滲む光)
+
+    private var background: some View {
+        ZStack {
+            LinearGradient(
+                colors: [theme.bgTop, theme.bgBottom],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            if !reduceTransparency {
+                RadialGradient(
+                    colors: [theme.haloPrimary.opacity(theme.isDark ? 0.45 : 0.22), .clear],
+                    center: .topTrailing, startRadius: 0, endRadius: 460
+                )
+                RadialGradient(
+                    colors: [theme.haloSecondary.opacity(theme.isDark ? 0.40 : 0.18), .clear],
+                    center: .bottomLeading, startRadius: 0, endRadius: 520
+                )
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    // MARK: - Glass surface
+
+    /// 半透明ガラス面(.ultraThinMaterial)+ specular edge + 落ち影。
+    /// reduce-transparency では不透明 elevated 面に畳む。
+    private func glassPanel<Content: View>(
+        cornerRadius: CGFloat,
+        tinted: Bool = false,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return content()
+            .background {
+                if reduceTransparency {
+                    shape.fill(theme.solidPanel)
+                } else {
+                    shape.fill(.ultraThinMaterial)
+                }
+                if tinted {
+                    shape.fill(theme.signal.opacity(reduceTransparency ? 0.20 : 0.12))
+                }
+            }
+            .overlay {
+                shape.strokeBorder(
+                    LinearGradient(
+                        colors: [theme.glassEdgeTop, theme.glassEdgeBottom],
+                        startPoint: .top, endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+            }
+            .shadow(
+                color: reduceTransparency ? .clear : theme.cardShadow,
+                radius: reduceTransparency ? 0 : 26, y: reduceTransparency ? 0 : 16
+            )
     }
 
     // MARK: - Top bar
@@ -89,19 +150,40 @@ public struct TunerScreen: View {
     }
 
     private var referenceControl: some View {
-        HStack(spacing: 14) {
+        let shape = Capsule(style: .continuous)
+        return HStack(spacing: 12) {
             referenceButton(symbol: "minus", label: copy.lowerReference) {
                 model.setReferenceA4(model.referenceA4 - 1)
             }
             Text(copy.reference(model.referenceA4))
-                .font(.system(.footnote, design: .monospaced))
-                .foregroundStyle(theme.muted)
+                .font(.system(.footnote, design: .rounded).weight(.medium))
+                .foregroundStyle(theme.ink)
                 .monospacedDigit()
                 .accessibilityLabel(copy.reference(model.referenceA4))
             referenceButton(symbol: "plus", label: copy.raiseReference) {
                 model.setReferenceA4(model.referenceA4 + 1)
             }
         }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background {
+            if reduceTransparency {
+                shape.fill(theme.solidPanel)
+            } else {
+                shape.fill(.ultraThinMaterial)
+            }
+        }
+        .overlay {
+            shape.strokeBorder(
+                LinearGradient(
+                    colors: [theme.glassEdgeTop, theme.glassEdgeBottom],
+                    startPoint: .top, endPoint: .bottom
+                ),
+                lineWidth: 1
+            )
+        }
+        .shadow(color: reduceTransparency ? .clear : theme.cardShadow,
+                radius: reduceTransparency ? 0 : 12, y: reduceTransparency ? 0 : 6)
     }
 
     private func referenceButton(symbol: String, label: String, action: @escaping () -> Void) -> some View {
@@ -138,13 +220,19 @@ public struct TunerScreen: View {
     // MARK: - Tuning / listening
 
     private func tuningLayout(note: ResolvedNote?, inTune: Bool) -> some View {
-        VStack(spacing: 28) {
-            noteHero(note: note, inTune: inTune)
-            centsReadout(note: note)
-            CentsScale(cents: note?.cents, inTune: inTune, theme: theme)
-            directionLabel(note: note, inTune: inTune)
+        glassPanel(cornerRadius: 36, tinted: inTune) {
+            VStack(spacing: 26) {
+                noteHero(note: note, inTune: inTune)
+                centsReadout(note: note)
+                CentsScale(cents: note?.cents, inTune: inTune, theme: theme)
+                directionLabel(note: note, inTune: inTune)
+            }
+            .padding(.vertical, 40)
+            .padding(.horizontal, 32)
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: 460)
+        .frame(maxWidth: 380)
+        .animation(.easeInOut(duration: 0.25), value: inTune)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription(note: note, inTune: inTune))
     }
@@ -152,7 +240,7 @@ public struct TunerScreen: View {
     private func noteHero(note: ResolvedNote?, inTune: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(note?.name.displayText ?? "\u{2013}")    // – when no reading
-            .font(.system(size: heroSize, weight: .medium))
+            .font(.system(size: heroSize, weight: .semibold, design: .rounded))
                 .foregroundStyle(inTune ? theme.signal : theme.ink)
                 // in-tune の瞬間だけ、深い背景に対して signal が灯る二段の emissive bloom。
                 .shadow(color: theme.signal.opacity(inTune && glowEnabled ? 0.42 : 0),
@@ -165,7 +253,7 @@ public struct TunerScreen: View {
 
             if let octave = note?.octave {
                 Text("\(octave)")
-                    .font(.system(size: heroSize * 0.34, weight: .regular))
+                    .font(.system(size: heroSize * 0.34, weight: .medium, design: .rounded))
                     .foregroundStyle(theme.muted)
                     .lineLimit(1)
             }

@@ -56,6 +56,26 @@ struct ToneTheme {
         isDark ? rgb(0.125, 0.855, 0.655) : rgb(0.000, 0.722, 0.580)
     }
 
+    // MARK: - Liquid Glass(材質と光)
+
+    /// 色付き背景グラデーション。ガラスが屈折する“素地”を与える。
+    var bgTop: Color { isDark ? rgb(0.082, 0.086, 0.110) : rgb(0.984, 0.980, 0.965) }
+    var bgBottom: Color { isDark ? rgb(0.035, 0.039, 0.059) : rgb(0.925, 0.918, 0.902) }
+
+    /// 背景に滲む 2 つの光(dark: teal + indigo)。ガラス面に色味の depth を映す。
+    var haloPrimary: Color { isDark ? rgb(0.071, 0.624, 0.494) : rgb(0.000, 0.722, 0.580) }
+    var haloSecondary: Color { isDark ? rgb(0.243, 0.255, 0.561) : rgb(0.490, 0.529, 0.961) }
+
+    /// ガラス面の specular edge(上端=明 / 下端=暗)。
+    var glassEdgeTop: Color { isDark ? Color.white.opacity(0.30) : Color.white.opacity(0.90) }
+    var glassEdgeBottom: Color { isDark ? Color.white.opacity(0.04) : Color.black.opacity(0.06) }
+
+    /// reduce-transparency 時のガラス代替(不透明な elevated 面)。
+    var solidPanel: Color { isDark ? rgb(0.110, 0.118, 0.149) : rgb(1.000, 1.000, 1.000) }
+
+    /// パネルの落ち影(奥行き)。
+    var cardShadow: Color { isDark ? Color.black.opacity(0.45) : Color.black.opacity(0.12) }
+
     private func rgb(_ r: Double, _ g: Double, _ b: Double) -> Color {
         Color(red: r, green: g, blue: b)
     }
