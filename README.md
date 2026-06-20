@@ -13,6 +13,14 @@
 - 丸いダイヤル / ゲージ(チューナー UI の定番)は採用しない。線形セントの方が読みやすく、より Swiss。
 - 余白主体。音名・オクターブ・セントずれ・定規・基準ピッチのみ。
 
+## スクリーンショット
+
+| チューニング中(sharp) | in-tune(ロック) |
+|---|---|
+| ![sharp](docs/screenshots/sharp-light.png) | ![in tune](docs/screenshots/in-tune-light.png) |
+
+in-tune の瞬間だけ音名・indicator・中央目盛りが単一アクセント色へ収束する。
+
 ## アーキテクチャ
 
 ドメインロジック(`TuningProcessor` / `NoteConverter`)を SwiftUI・AudioKit から分離し、`PitchEngine` / `Clock` / `ReferencePitchStore` を protocol 注入してテスト可能にする。
