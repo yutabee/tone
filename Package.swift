@@ -10,6 +10,7 @@ let package = Package(
     products: [
         .library(name: "ToneCore", targets: ["ToneCore"]),
         .library(name: "ToneAudio", targets: ["ToneAudio"]),
+        .library(name: "ToneUI", targets: ["ToneUI"]),
     ],
     dependencies: [
         .package(url: "https://github.com/AudioKit/AudioKit.git", from: "5.6.0"),
@@ -27,6 +28,8 @@ let package = Package(
                 .product(name: "SoundpipeAudioKit", package: "SoundpipeAudioKit", condition: .when(platforms: [.iOS])),
             ]
         ),
+        // UI 層: SwiftUI views。engine 非依存(TunerViewModel を ToneCore から観測)。
+        .target(name: "ToneUI", dependencies: ["ToneCore"]),
         .testTarget(name: "ToneCoreTests", dependencies: ["ToneCore"]),
     ]
 )
