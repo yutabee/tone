@@ -1,5 +1,6 @@
 app_identifier("jp.syncbloom.tone")
-apple_id("info@syncbloom.jp")
+# Apple ID(ログイン)も環境変数から読む(個人メールを公開 repo に commit しない)。`export FASTLANE_USER=<your-apple-id>`。
+apple_id(ENV.fetch("FASTLANE_USER", ""))
 
 # Team ID は環境変数から読む(秘密を commit しない)。`export DEVELOPMENT_TEAM=XXXXXXXXXX`。
 team_id(ENV.fetch("DEVELOPMENT_TEAM", ""))

@@ -6,7 +6,7 @@
 # One-time per machine / ~monthly when the session expires:
 #   brew install fastlane xcodegen
 #   export DEVELOPMENT_TEAM=XXXXXXXXXX                       # 10-char Team ID
-#   export FASTLANE_USER=info@syncbloom.jp                   # Apple ID
+#   export FASTLANE_USER=<your-apple-id>                     # Developer Program 加入の Apple ID
 #   export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx  # appleid.apple.com → App-Specific Passwords (binary upload)
 #   export FASTLANE_SESSION="$(fastlane spaceauth -u "$FASTLANE_USER")"      # complete 2FA in the prompt; paste the printed value
 #

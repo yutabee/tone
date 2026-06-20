@@ -23,7 +23,7 @@ command does build → upload → metadata → submit.
 ```bash
 brew install fastlane xcodegen
 export DEVELOPMENT_TEAM=XXXXXXXXXX
-export FASTLANE_USER=info@syncbloom.jp
+export FASTLANE_USER=<your-apple-id>   # Developer Program 加入の Apple ID
 # App-specific password (binary upload): appleid.apple.com → Sign-In and Security → App-Specific Passwords
 export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
 # Complete 2FA in the prompt, then keep the printed session (~30 days):
