@@ -7,7 +7,7 @@
 set -euo pipefail
 
 DEVICE="${SIM_DEVICE:-iPhone 17 Pro Max}"   # 6.9" class (1320×2868)
-BUNDLE_ID="jp.syncbloom.tone"
+BUNDLE_ID="com.yutabee.tone"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/fastlane/screenshots/en-US"
 DD="$ROOT/build/dd"

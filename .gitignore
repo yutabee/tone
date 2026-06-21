@@ -22,5 +22,12 @@ fastlane/.env*
 *.mobileprovision
 *.cer
 
+# fastlane 自動生成物(SSOT は Fastfile / metadata)
+fastlane/README.md
+fastlane/report.xml
+
+# Playwright MCP のスナップショットキャッシュ
+.playwright-mcp/
+
 # macOS
 .DS_Store

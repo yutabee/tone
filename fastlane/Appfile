@@ -1,5 +1,7 @@
-app_identifier("jp.syncbloom.tone")
-apple_id("info@syncbloom.jp")
+app_identifier("com.yutabee.tone")
+# 認証は App Store Connect API キー(.p8)を使うため apple_id は不要。
+# 旧 spaceauth 経路を使う場合のみ `export FASTLANE_USER=<your-apple-id>` で復活する。
+apple_id(ENV["FASTLANE_USER"]) if ENV["FASTLANE_USER"] && !ENV["FASTLANE_USER"].empty?
 
 # Team ID は環境変数から読む(秘密を commit しない)。`export DEVELOPMENT_TEAM=XXXXXXXXXX`。
 team_id(ENV.fetch("DEVELOPMENT_TEAM", ""))

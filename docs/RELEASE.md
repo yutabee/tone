@@ -15,19 +15,21 @@ export DEVELOPMENT_TEAM=XXXXXXXXXX   # your 10-char Team ID
 ```
 For the manual xcodebuild path (steps 3–9) also set `teamID` in `ExportOptions.plist`.
 
-## A. Automated release — fastlane, manual auth (recommended)
-No App Store Connect API key is shared. You authenticate once with 2FA; fastlane
-then runs non-interactively from the session. After the app record exists, one
-command does build → upload → metadata → submit.
+## A. Automated release — fastlane + App Store Connect API key (recommended)
+Auth uses an **App Store Connect API key (.p8)** — no Apple ID password, no 2FA, and
+no expiring session. The key replaces both spaceauth and the app-specific password.
+After the app record exists, one command does build → upload → metadata → submit.
+
+One-time: App Store Connect → **Users and Access → Integrations → App Store Connect API**
+→ generate a Team key with the **App Manager** role → download `AuthKey_XXXXXXXXXX.p8`
+(downloadable once) → note the **Key ID** and **Issuer ID** (Issuer ID is at the top of the page).
 
 ```bash
 brew install fastlane xcodegen
-export DEVELOPMENT_TEAM=XXXXXXXXXX
-export FASTLANE_USER=info@syncbloom.jp
-# App-specific password (binary upload): appleid.apple.com → Sign-In and Security → App-Specific Passwords
-export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
-# Complete 2FA in the prompt, then keep the printed session (~30 days):
-export FASTLANE_SESSION="$(fastlane spaceauth -u "$FASTLANE_USER")"
+export DEVELOPMENT_TEAM=XXXXXXXXXX                  # 10-char Team ID
+export ASC_KEY_ID=XXXXXXXXXX                        # the key's Key ID
+export ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx   # Issuer ID
+export ASC_KEY_FILEPATH="$HOME/.private_keys/AuthKey_XXXXXXXXXX.p8"  # path to the .p8
 
 fastlane ensure_app   # creates the App ID + App Store Connect record (idempotent) — replaces step 2
 fastlane release      # build+sign → upload binary + metadata + screenshots → SUBMIT for review
@@ -38,11 +40,32 @@ instead, then submit by hand in App Store Connect.
 
 The pure-Xcode path below (steps 3–9) is the fallback if you don't use fastlane.
 
+### Distribution signing (one-time, manual)
+The App Manager API-key role can **upload** but cannot **create signing certificates**,
+so cloud signing (`-allowProvisioningUpdates`) fails at export. Release builds therefore
+use **manual signing** against assets you install once:
+
+1. **Apple Distribution certificate** — `developer.apple.com/account` → Certificates → **+**
+   → *Apple Distribution*. Generate a CSR locally (Keychain Access → Certificate Assistant →
+   *Request a Certificate from a Certificate Authority*, "Saved to disk"), upload it, download
+   the `.cer`, and double-click to import into your **login** keychain. Verify:
+   ```bash
+   security find-identity -p codesigning -v   # shows "Apple Distribution: <name> (<team id>)"
+   ```
+2. **App Store provisioning profile** — Profiles → **+** → *App Store* → App ID
+   `com.yutabee.tone` → the distribution cert above → **name it exactly `Tone App Store`**.
+   Download and double-click to install (lands in `~/Library/MobileDevice/Provisioning Profiles/`).
+
+`project.yml` pins these on the Tone target's **Release** config only
+(`CODE_SIGN_IDENTITY: "Apple Distribution"`, `PROVISIONING_PROFILE_SPECIFIER: "Tone App Store"`)
+so the setting never bleeds into the SPM dependencies. Once both are installed,
+`fastlane beta` / `fastlane release` archive + export + upload with no further signing input.
+
 ## 2. **(human)** Register the app in App Store Connect
-1. `developer.apple.com/account` → Identifiers → register App ID `jp.syncbloom.tone` (Explicit).
+1. `developer.apple.com/account` → Identifiers → register App ID `com.yutabee.tone` (Explicit).
 2. App Store Connect → My Apps → **+** → New App:
-   - Platform: iOS · Name: **Tone** · Primary language: English (or Japanese)
-   - Bundle ID: `jp.syncbloom.tone` · SKU: `tone-ios-1`
+   - Platform: iOS · Name: **Tone Tuner** (the bare "Tone" is already taken on the App Store; the on-device name stays **Tone**) · Primary language: English (U.S.)
+   - Bundle ID: `com.yutabee.tone` · SKU: `tone-ios-1`
 3. Set the **Privacy Policy URL** (App Privacy section):
    `https://github.com/yutabee/tone/blob/main/docs/privacy-policy.md`
    (or enable GitHub Pages on `/docs` for a cleaner URL).

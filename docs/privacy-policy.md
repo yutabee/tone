@@ -23,4 +23,4 @@ Tone collects no data from anyone, including children.
 If this policy changes, the updated version will be posted at this page.
 
 ## Contact
-Questions: info@syncbloom.jp
+Questions: https://github.com/yutabee/tone/issues
