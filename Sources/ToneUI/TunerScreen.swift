@@ -81,11 +81,21 @@ public struct TunerScreen: View {
 
     /// full-bleed の筐体面の内側に、面取り枠と四隅のネジを描く。背景塗りは持たない
     /// (グラファイトは `deviceSurface` が担う)。これで端末全体が 1 台の機材に見える。
-    private func faceplate<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+    ///
+    /// 中身は「収まる間は筐体いっぱいに広がり Spacer で中央寄せ(= 通常レイアウトと同一)、
+    /// 大きな Dynamic Type / 小画面で溢れた時だけ縦スクロール」する適応コンテナに包む。
+    /// これで極端な文字サイズでも hero / REF ステッパー等の要素が切れず到達可能になる。
+    /// 面取り枠とネジはスクロール外に置き、筐体の縁としてビューポートを常に縁取る。
+    private func faceplate<Content: View>(@ViewBuilder content: @escaping () -> Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
-        return content()
-            .padding(.horizontal, 22)
-            .padding(.vertical, 22)
+        return GeometryReader { geo in
+            ScrollView(.vertical, showsIndicators: false) {
+                content()
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 22)
+                    .frame(maxWidth: .infinity, minHeight: geo.size.height)
+            }
+        }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .overlay {
                 shape.strokeBorder(
