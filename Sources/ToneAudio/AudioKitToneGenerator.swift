@@ -3,6 +3,7 @@ import Foundation
 #if os(iOS)
 import AVFoundation
 import AudioKit
+import os
 import SoundpipeAudioKit
 import ToneCore
 
@@ -13,6 +14,8 @@ import ToneCore
 @MainActor
 public final class AudioKitToneGenerator: ToneGenerator {
     public var onStopped: (@MainActor (ToneGeneratorStopReason) -> Void)?
+
+    private static let logger = Logger(subsystem: "com.yutabee.tone", category: "ToneAudio")
 
     private let targetAmplitude: Float = 0.2
     private let envelopeDuration: Float = 0.008
@@ -35,7 +38,7 @@ public final class AudioKitToneGenerator: ToneGenerator {
     /// `AVAudioSession`(`.playback`)を有効化し、サイン波オシレータを起動する。
     /// 再生中は graph を作り直さず、frequency ramp で更新する。
     public func play(frequency: Double) throws {
-        guard frequency.isFinite, frequency > 0 else {
+        guard frequency.isFinite, frequency > 0, Float(frequency).isFinite else {
             throw ToneGeneratorError.invalidFrequency
         }
 
@@ -93,20 +96,45 @@ public final class AudioKitToneGenerator: ToneGenerator {
 
     private func stopAudioGraph(deactivateSession: Bool, useEnvelope: Bool) {
         notificationGeneration += 1
+        let teardownGeneration = notificationGeneration
         isRunning = false
 
-        if useEnvelope, let oscillator {
-            oscillator.$amplitude.ramp(to: 0, duration: envelopeDuration)
-            Thread.sleep(forTimeInterval: TimeInterval(envelopeDuration))
+        let oscillator = self.oscillator
+        let engine = self.engine
+        self.oscillator = nil
+        self.engine = nil
+
+        guard useEnvelope, let oscillator else {
+            oscillator?.stop()
+            engine?.stop()
+            if deactivateSession {
+                deactivateSessionIfCurrent(teardownGeneration)
+            }
+            return
         }
 
-        oscillator?.stop()
-        oscillator = nil
-        engine?.stop()
-        engine = nil
+        // クリック音回避のため amplitude を fade させ、完了後に非同期で graph を停止する
+        // (main actor をブロックしない)。fade 中に再生が再開されたら世代不一致で session は止めない。
+        oscillator.$amplitude.ramp(to: 0, duration: envelopeDuration)
+        let fadeSeconds = Double(envelopeDuration)
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(fadeSeconds))
+            oscillator.stop()
+            engine?.stop()
+            if deactivateSession {
+                self?.deactivateSessionIfCurrent(teardownGeneration)
+            }
+        }
+    }
 
-        if deactivateSession {
-            try? AVAudioSession.sharedInstance().setActive(false)
+    /// fade teardown が依然として最新世代のときだけ session を無効化する
+    /// (fade 中に play() が再開していたら新しい session を殺さない)。
+    private func deactivateSessionIfCurrent(_ generation: Int) {
+        guard notificationGeneration == generation else { return }
+        do {
+            try AVAudioSession.sharedInstance().setActive(false)
+        } catch {
+            Self.logger.error("AVAudioSession の無効化に失敗: \(error.localizedDescription, privacy: .public)")
         }
     }
 

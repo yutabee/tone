@@ -119,10 +119,13 @@ public final class TunerViewModel {
         applyTuningStateToViewState()
     }
 
-    /// 音叉モードへ移行し、検出器を停止する。
+    /// 音叉モードへ移行し、検出器を停止する。再入(既に再生中)でも実出力を確実に止める。
     public func enterToneMode() {
         engine.stop()
-        isTonePlaying = false
+        if isTonePlaying {
+            toneGenerator.stop()
+            isTonePlaying = false
+        }
         mode = .tone
     }
 
@@ -240,6 +243,8 @@ public final class TunerViewModel {
             try toneGenerator.play(frequency: toneSelection.frequency(referenceA4: referenceA4))
             isTonePlaying = true
         } catch {
+            // 失敗時は実出力を確実に止めて UI 状態と同期させる(旧音の鳴り残しを防ぐ)。
+            toneGenerator.stop()
             isTonePlaying = false
         }
     }
