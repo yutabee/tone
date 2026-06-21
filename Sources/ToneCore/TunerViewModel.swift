@@ -32,6 +32,9 @@ public final class TunerViewModel {
     public private(set) var referenceA4: Double
     public private(set) var mode: Mode = .tuner
     public private(set) var toneSelection: ToneSelection = ToneRange.defaultSelection
+    /// 現在の選択音色。`init` では `.default`、`onAppear()` で `timbreStore` から復元する
+    /// (基準ピッチ `referenceA4` の復元タイミングと揃える)。
+    public private(set) var toneTimbre: ToneTimbre = .default
     public private(set) var isTonePlaying = false
 
     private let engine: any PitchEngine
@@ -39,6 +42,7 @@ public final class TunerViewModel {
     private let store: any ReferencePitchStore
     private let clock: any Clock
     private let toneGenerator: any ToneGenerator
+    private let timbreStore: any ToneTimbreStore
     private var tuningState = TuningState()
     private var permissionState: PermissionState = .notDetermined
 
@@ -47,13 +51,15 @@ public final class TunerViewModel {
         processor: TuningProcessor,
         store: any ReferencePitchStore,
         clock: any Clock,
-        toneGenerator: any ToneGenerator
+        toneGenerator: any ToneGenerator,
+        timbreStore: any ToneTimbreStore
     ) {
         self.engine = engine
         self.processor = processor
         self.store = store
         self.clock = clock
         self.toneGenerator = toneGenerator
+        self.timbreStore = timbreStore
         self.referenceA4 = processor.converter.referenceA4
 
         toneGenerator.onStopped = { [weak self] _ in
@@ -68,6 +74,9 @@ public final class TunerViewModel {
         if let storedReferenceA4 = store.load() {
             updateReferenceA4(storedReferenceA4, shouldSave: false)
         }
+        // 未保存 / 未知 rawValue は `.default` に明示フォールバックする
+        // (onAppear 再入時に非 default の旧値が残らないよう if-let にしない)。
+        toneTimbre = timbreStore.load() ?? .default
 
         engine.onReading = { [weak self] reading in
             self?.handle(reading)
@@ -178,6 +187,15 @@ public final class TunerViewModel {
         updatePlayingToneIfNeeded()
     }
 
+    /// 音叉モード中だけ音色を変更する。永続化し、再生中なら新音色で即反映する。
+    public func selectToneTimbre(_ timbre: ToneTimbre) {
+        guard mode == .tone else { return }
+
+        toneTimbre = timbre
+        timbreStore.save(timbre)
+        updatePlayingToneIfNeeded()
+    }
+
     private func handle(_ reading: PitchReading) {
         guard mode != .tone else { return }
 
@@ -240,7 +258,7 @@ public final class TunerViewModel {
 
     private func playSelectedTone() {
         do {
-            try toneGenerator.play(frequency: toneSelection.frequency(referenceA4: referenceA4))
+            try toneGenerator.play(frequency: toneSelection.frequency(referenceA4: referenceA4), timbre: toneTimbre)
             isTonePlaying = true
         } catch {
             // 失敗時は実出力を確実に止めて UI 状態と同期させる(旧音の鳴り残しを防ぐ)。

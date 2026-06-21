@@ -9,6 +9,7 @@ struct TunerViewModelToneTests {
         engine: MockPitchEngine = MockPitchEngine(),
         generator: MockToneGenerator = MockToneGenerator(),
         store: InMemoryReferencePitchStore = InMemoryReferencePitchStore(),
+        timbreStore: InMemoryToneTimbreStore = InMemoryToneTimbreStore(),
         clock: TestClock = TestClock(),
         referenceA4: Double = 440
     ) -> TunerViewModel {
@@ -17,7 +18,8 @@ struct TunerViewModelToneTests {
             processor: TuningProcessor(converter: NoteConverter(referenceA4: referenceA4)),
             store: store,
             clock: clock,
-            toneGenerator: generator
+            toneGenerator: generator,
+            timbreStore: timbreStore
         )
     }
 

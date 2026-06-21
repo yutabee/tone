@@ -20,8 +20,8 @@ public enum ToneGeneratorStopReason: Equatable, Sendable {
 public protocol ToneGenerator: AnyObject {
     /// 非ユーザ要因停止で発火。`stop()` 由来では呼ばない。
     var onStopped: (@MainActor (ToneGeneratorStopReason) -> Void)? { get set }
-    /// 再生開始 / 再生中は周波数更新(冪等な再設定)。非正 / 非有限は `invalidFrequency` を throw。
-    func play(frequency: Double) throws
+    /// 再生開始 / 再生中は周波数・音色を反映(冪等な再設定)。非正 / 非有限 frequency は `invalidFrequency` を throw。
+    func play(frequency: Double, timbre: ToneTimbre) throws
     /// 停止。冪等。`onStopped` は呼ばない。
     func stop()
 }

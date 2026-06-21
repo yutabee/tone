@@ -56,3 +56,25 @@ final class InMemoryReferencePitchStore: ReferencePitchStore {
     func load() -> Double? { stored }
     func save(_ hz: Double) { stored = hz }
 }
+
+/// テスト用 in-memory 音色永続化。`saveCallCount` / `loadCallCount` で呼び出しを検証できる。
+final class InMemoryToneTimbreStore: ToneTimbreStore {
+    private(set) var stored: ToneTimbre?
+    private(set) var saveCallCount = 0
+    private(set) var loadCallCount = 0
+    init(initial: ToneTimbre? = nil) {
+        self.stored = initial
+    }
+
+    func load() -> ToneTimbre? {
+        loadCallCount += 1
+        return stored
+    }
+    func save(_ timbre: ToneTimbre) {
+        stored = timbre
+        saveCallCount += 1
+    }
+
+    /// テスト用: 外部要因で永続値が消えた状況を模す(load が nil を返すようになる)。
+    func simulateExternalClear() { stored = nil }
+}
