@@ -32,7 +32,8 @@ struct ToneApp: App {
             engine: engine,
             processor: TuningProcessor(converter: NoteConverter()),
             store: UserDefaultsReferencePitchStore(),
-            clock: MonotonicClock()
+            clock: MonotonicClock(),
+            toneGenerator: AudioKitToneGenerator()
         )
     }
 }
