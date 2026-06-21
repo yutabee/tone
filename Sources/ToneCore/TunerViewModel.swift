@@ -88,9 +88,14 @@ public final class TunerViewModel {
         }
     }
 
-    /// 画面離脱で検出を止める。
+    /// 画面離脱 / 背景化で検出を止める。tone モードで再生中なら参照トーンも止め
+    /// `isTonePlaying` を同期する(復帰時に自動再生しない / 状態遷移表準拠)。
     public func onDisappear() {
         engine.stop()
+        if isTonePlaying {
+            toneGenerator.stop()
+            isTonePlaying = false
+        }
     }
 
     /// 基準ピッチ変更: `415...466` にクランプ → `store.save` → `processor` / `converter` を再構築し

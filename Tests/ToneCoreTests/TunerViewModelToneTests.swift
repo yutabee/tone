@@ -188,6 +188,21 @@ struct TunerViewModelToneTests {
         #expect(gen.playCallCount == before)
     }
 
+    /// 背景化(onDisappear)時、tone モードで再生中なら toneGenerator.stop が呼ばれ
+    /// isTonePlaying==false に同期する(復帰時に自動再生しない / 状態遷移表)。
+    @Test
+    func onDisappearStopsToneWhilePlaying() {
+        let gen = MockToneGenerator()
+        let vm = makeViewModel(generator: gen)
+        vm.enterToneMode()
+        vm.toggleTone()                 // 再生中
+        #expect(vm.isTonePlaying == true)
+
+        vm.onDisappear()
+        #expect(gen.stopCallCount >= 1)
+        #expect(vm.isTonePlaying == false)
+    }
+
     /// AC17: play throw 共通ポリシー — 更新中の throw で isTonePlaying==false、選択/REF は最新を保持。
     @Test
     func ac17_throwPolicyOnUpdate() {
