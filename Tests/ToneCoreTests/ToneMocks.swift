@@ -13,14 +13,16 @@ final class MockToneGenerator: ToneGenerator {
     private(set) var playCallCount = 0
     private(set) var stopCallCount = 0
     private(set) var lastFrequency: Double?
+    private(set) var lastTimbre: ToneTimbre?
     private(set) var isPlaying = false
 
-    func play(frequency: Double) throws {
+    func play(frequency: Double, timbre: ToneTimbre) throws {
         playCallCount += 1
         if let playError {
             throw playError
         }
         lastFrequency = frequency
+        lastTimbre = timbre
         isPlaying = true
     }
 
