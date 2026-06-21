@@ -41,4 +41,13 @@ final class DemoPitchEngine: PitchEngine {
         task = nil
     }
 }
+
+/// デモ / スクショ用の無音 `ToneGenerator`。AudioKit / `AVAudioSession` を一切構築しないため、
+/// 起動時にマイク権限ダイアログが出ない(音色選択 UI のスクショ取得用)。
+@MainActor
+final class SilentToneGenerator: ToneGenerator {
+    var onStopped: (@MainActor (ToneGeneratorStopReason) -> Void)?
+    func play(frequency: Double, timbre: ToneTimbre) throws {}
+    func stop() {}
+}
 #endif
