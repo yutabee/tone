@@ -74,9 +74,9 @@ public final class TunerViewModel {
         if let storedReferenceA4 = store.load() {
             updateReferenceA4(storedReferenceA4, shouldSave: false)
         }
-        if let storedTimbre = timbreStore.load() {
-            toneTimbre = storedTimbre
-        }
+        // 未保存 / 未知 rawValue は `.default` に明示フォールバックする
+        // (onAppear 再入時に非 default の旧値が残らないよう if-let にしない)。
+        toneTimbre = timbreStore.load() ?? .default
 
         engine.onReading = { [weak self] reading in
             self?.handle(reading)
