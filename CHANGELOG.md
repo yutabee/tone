@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Initial public release (v1.0.0) — in preparation. App version is set by
-`MARKETING_VERSION` in `project.yml`; see [docs/RELEASE.md](docs/RELEASE.md).
+## [1.0.0] - 2026-06-21
+
+First public release. App version is set by `MARKETING_VERSION` in
+`project.yml`; see [docs/RELEASE.md](docs/RELEASE.md) for the App Store runbook.
 
 ### Added
 - **Chromatic tuner.** Microphone pitch detection showing note, octave, and cents
@@ -24,4 +26,5 @@ Initial public release (v1.0.0) — in preparation. App version is set by
 - **Privacy by design.** Fully offline, no accounts, no analytics, no third-party
   tracking SDKs; audio is processed on-device and never recorded or transmitted.
 
-[Unreleased]: https://github.com/yutabee/tone/commits/main
+[Unreleased]: https://github.com/yutabee/tone/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/yutabee/tone/releases/tag/v1.0.0
