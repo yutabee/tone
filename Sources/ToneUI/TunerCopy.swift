@@ -55,6 +55,29 @@ struct TunerCopy {
     var detected: String { t("検出", "Detected") }
     var target: String { t("目標", "Target") }
 
+    // 音叉モード
+    var tunerModeLabel: String { t("チューナーモード", "Tuner mode") }
+    var toneModeLabel: String { t("音叉モード", "Tone mode") }
+    var play: String { t("再生", "Play") }
+    var stop: String { t("停止", "Stop") }
+    var raiseOctave: String { t("オクターブを上げる", "Raise octave") }
+    var lowerOctave: String { t("オクターブを下げる", "Lower octave") }
+
+    /// 音名選択ボタンの読み(C / C シャープ …)。
+    func toneNoteName(_ name: NoteName) -> String { spokenNoteName(name) }
+
+    /// 音叉モードの集約読み上げ(音名 + オクターブ + 周波数 + 再生/停止)。
+    func toneStatus(_ selection: ToneSelection, frequency: Double, playing: Bool) -> String {
+        let name = spokenNoteName(selection.name)
+        let octave = selection.octave
+        let hz = Int(frequency.rounded())
+        if language == .ja {
+            return "\(name) オクターブ\(octave)、\(hz) ヘルツ、\(playing ? "再生中" : "停止中")"
+        } else {
+            return "\(name) octave \(octave), \(hz) hertz, \(playing ? "playing" : "stopped")"
+        }
+    }
+
     // VoiceOver: 音名 + 高い/低い/合っている
     func noteAccessibilityLabel(_ note: ResolvedNote, inTune: Bool) -> String {
         let name = spokenNoteName(note.name)

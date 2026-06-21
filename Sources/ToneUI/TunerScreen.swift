@@ -150,17 +150,49 @@ public struct TunerScreen: View {
             }
     }
 
-    /// 筐体上端の刻印行(ブランド + 種別)。
+    /// 筐体上端の刻印行(ブランド + モードトグル)。トグルは検出を要さない出力機能のため、
+    /// 権限拒否 / エラー状態でも到達可能にして音叉モードへ抜けられるようにする。
     private var faceplateHeader: some View {
         HStack {
             Text("TONE")
                 .font(.system(size: 12, weight: .bold)).tracking(4)
+                .foregroundStyle(theme.faceMuted)
+                .accessibilityHidden(true)
             Spacer()
-            Text("CHROMATIC")
-                .font(.system(size: 10, weight: .semibold)).tracking(3)
+            modeToggle
         }
-        .foregroundStyle(theme.faceMuted)
-        .accessibilityHidden(true)
+    }
+
+    /// チューナー ⇄ 音叉のセグメントトグル。点灯側は bone fill + 暗文字。
+    private var modeToggle: some View {
+        HStack(spacing: 2) {
+            modeSegment(title: "TUNER", active: model.mode == .tuner, label: copy.tunerModeLabel) {
+                if model.mode != .tuner { Task { await model.exitToneMode() } }
+            }
+            modeSegment(title: "TONE", active: model.mode == .tone, label: copy.toneModeLabel) {
+                if model.mode != .tone { model.enterToneMode() }
+            }
+        }
+        .padding(2)
+        .background { Capsule(style: .continuous).fill(Color.black.opacity(0.28)) }
+        .overlay { Capsule(style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 1) }
+    }
+
+    private func modeSegment(title: String, active: Bool, label: String,
+                             action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 10, weight: .bold)).tracking(2)
+                .foregroundStyle(active ? theme.faceBottom : theme.faceMuted)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background {
+                    if active { Capsule(style: .continuous).fill(theme.needle) }
+                }
+                .contentShape(Capsule(style: .continuous))
+        }
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(active ? [.isSelected] : [])
     }
 
     private var showsReferenceControl: Bool {
@@ -211,19 +243,43 @@ public struct TunerScreen: View {
 
     @ViewBuilder
     private var center: some View {
-        switch model.state {
-        case .idle:
-            statusMessage(copy.starting)
-        case .requestingPermission:
-            statusMessage(copy.requestingPermission)
-        case .listening:
-            tuningLayout(note: nil, inTune: false)
-        case let .tuning(note, inTune):
-            tuningLayout(note: note, inTune: inTune)
-        case .permissionDenied:
-            permissionDenied
-        case let .engineError(error):
-            engineError(error)
+        if model.mode == .tone {
+            toneLayout
+        } else {
+            switch model.state {
+            case .idle:
+                statusMessage(copy.starting)
+            case .requestingPermission:
+                statusMessage(copy.requestingPermission)
+            case .listening:
+                tuningLayout(note: nil, inTune: false)
+            case let .tuning(note, inTune):
+                tuningLayout(note: note, inTune: inTune)
+            case .permissionDenied:
+                permissionDenied
+            case let .engineError(error):
+                engineError(error)
+            }
+        }
+    }
+
+    // MARK: - Tone mode(音叉)
+
+    /// 音叉画面。チューナーと同じ筐体・ヘッダ・REF ステッパーを共有し、内側の操作面のみ
+    /// `ToneModeView` に委ねる。REF 変更は再生中の音へ即追従する(VM 側 throw ポリシー)。
+    private var toneLayout: some View {
+        faceplate {
+            VStack(spacing: 0) {
+                faceplateHeader
+
+                Spacer(minLength: 16)
+
+                ToneModeView(model: model, theme: theme)
+
+                Spacer(minLength: 22)
+
+                referenceControl
+            }
         }
     }
 
