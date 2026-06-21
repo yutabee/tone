@@ -20,19 +20,19 @@ public final class AudioKitToneGenerator: ToneGenerator {
     private let envelopeDuration: Float = 0.008
     private let frequencyRampDuration: Float = 0.008
     private var engine: AudioEngine?
+    private var mixer: Mixer?
     private var voice: ToneVoice?
     private var currentTimbre: ToneTimbre?
-    private var pendingTimbre: ToneTimbre?
-    private var pendingFrequency: Double?
     private var notificationObservers: [NSObjectProtocol] = []
     private var isRunning = false
     private var notificationGeneration = 0
-    private var voiceGeneration = 0
 
     public init() {}
 
     // MainActor 隔離の stored property に触れるため isolated deinit を使う(Swift 6.1+)。
     isolated deinit {
+        voice?.stop()
+        engine?.stop()
         for observer in notificationObservers {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -45,26 +45,6 @@ public final class AudioKitToneGenerator: ToneGenerator {
             throw ToneGeneratorError.invalidFrequency
         }
 
-        if isRunning, let pendingTimbre {
-            if timbre == pendingTimbre {
-                pendingFrequency = frequency
-                ensureNotificationObservers()
-                return
-            }
-
-            if timbre == currentTimbre, let voice {
-                cancelPendingVoiceReplacement()
-                voice.rampFrequency(to: frequency, duration: frequencyRampDuration)
-                voice.rampAmplitude(to: Self.targetAmplitude(for: timbre), duration: envelopeDuration)
-                ensureNotificationObservers()
-                return
-            }
-
-            replaceVoice(frequency: frequency, timbre: timbre)
-            ensureNotificationObservers()
-            return
-        }
-
         if isRunning, let voice, timbre == currentTimbre {
             voice.rampFrequency(to: frequency, duration: frequencyRampDuration)
             voice.rampAmplitude(to: Self.targetAmplitude(for: timbre), duration: envelopeDuration)
@@ -73,7 +53,7 @@ public final class AudioKitToneGenerator: ToneGenerator {
         }
 
         if isRunning {
-            replaceVoice(frequency: frequency, timbre: timbre)
+            crossfadeToVoice(frequency: frequency, timbre: timbre)
             ensureNotificationObservers()
             return
         }
@@ -105,14 +85,15 @@ public final class AudioKitToneGenerator: ToneGenerator {
         }
 
         let engine = AudioEngine()
+        let mixer = Mixer()
         let voice = Self.makeVoice(frequency: frequency, timbre: timbre, amplitude: 0)
-        engine.output = voice.node
+        mixer.addInput(voice.node)
+        engine.output = mixer
 
         self.engine = engine
+        self.mixer = mixer
         self.voice = voice
         currentTimbre = timbre
-        pendingTimbre = nil
-        pendingFrequency = nil
 
         voice.start()
 
@@ -120,15 +101,14 @@ public final class AudioKitToneGenerator: ToneGenerator {
             try engine.start()
             isRunning = true
             notificationGeneration += 1
-            voiceGeneration += 1
             voice.rampAmplitude(to: Self.targetAmplitude(for: timbre), duration: envelopeDuration)
         } catch {
             throw ToneGeneratorError.engineUnavailable
         }
     }
 
-    private func replaceVoice(frequency: Double, timbre: ToneTimbre) {
-        guard let engine, let oldVoice = voice else {
+    private func crossfadeToVoice(frequency: Double, timbre: ToneTimbre) {
+        guard engine != nil, let mixer, let oldVoice = voice else {
             do {
                 try startAudioGraph(frequency: frequency, timbre: timbre)
             } catch {
@@ -138,57 +118,27 @@ public final class AudioKitToneGenerator: ToneGenerator {
             return
         }
 
-        voiceGeneration += 1
-        let replacementGeneration = voiceGeneration
-        pendingTimbre = timbre
-        pendingFrequency = frequency
+        let newVoice = Self.makeVoice(frequency: frequency, timbre: timbre, amplitude: 0)
+        mixer.addInput(newVoice.node)
+        newVoice.start()
 
-        // 音色変更は完全停止ではないため session / observer は維持し、voice だけを fade で差し替える。
+        // 音色変更は完全停止ではないため session / observer は維持し、Mixer 内で voice を crossfade する。
         oldVoice.rampAmplitude(to: 0, duration: envelopeDuration)
-        let fadeSeconds = Double(envelopeDuration)
+        newVoice.rampAmplitude(to: Self.targetAmplitude(for: timbre), duration: envelopeDuration)
 
-        Task { @MainActor [weak self] in
+        voice = newVoice
+        currentTimbre = timbre
+
+        let fadeSeconds = Double(envelopeDuration) + 0.02
+        Task { @MainActor in
             try? await Task.sleep(for: .seconds(fadeSeconds))
-
-            guard let self,
-                  self.voiceGeneration == replacementGeneration,
-                  self.isRunning,
-                  self.engine === engine,
-                  let targetTimbre = self.pendingTimbre
-            else { return }
-
-            let targetFrequency = self.pendingFrequency ?? frequency
-            let newVoice = Self.makeVoice(frequency: targetFrequency, timbre: targetTimbre, amplitude: 0)
-
+            mixer.removeInput(oldVoice.node)
             oldVoice.stop()
-            engine.output = newVoice.node
-            self.voice = newVoice
-            self.currentTimbre = targetTimbre
-            self.pendingTimbre = nil
-            self.pendingFrequency = nil
-
-            newVoice.start()
-
-            do {
-                try engine.start()
-                newVoice.rampAmplitude(to: Self.targetAmplitude(for: targetTimbre), duration: self.envelopeDuration)
-            } catch {
-                Self.logger.error("音色差し替え後の AudioEngine 起動に失敗: \(error.localizedDescription, privacy: .public)")
-                self.stopAudioGraph(deactivateSession: true, useEnvelope: false)
-                self.removeNotificationObservers()
-            }
         }
-    }
-
-    private func cancelPendingVoiceReplacement() {
-        voiceGeneration += 1
-        pendingTimbre = nil
-        pendingFrequency = nil
     }
 
     private func stopAudioGraph(deactivateSession: Bool, useEnvelope: Bool) {
         notificationGeneration += 1
-        voiceGeneration += 1
         let teardownGeneration = notificationGeneration
         isRunning = false
 
@@ -196,9 +146,8 @@ public final class AudioKitToneGenerator: ToneGenerator {
         let engine = self.engine
         self.voice = nil
         self.engine = nil
+        self.mixer = nil
         currentTimbre = nil
-        pendingTimbre = nil
-        pendingFrequency = nil
 
         guard useEnvelope, let voice else {
             voice?.stop()
