@@ -24,15 +24,33 @@ struct TunerViewModelTimbreTests {
     /// AC-T1: init 直後(onAppear 前)は .default(=sine)。ストアに値があっても読まない。
     @Test
     func acT1_initDefaultBeforeOnAppear() {
-        let vm = makeViewModel(timbreStore: InMemoryToneTimbreStore(initial: .fork))
+        let timbreStore = InMemoryToneTimbreStore(initial: .fork)
+        let vm = makeViewModel(timbreStore: timbreStore)
         #expect(vm.toneTimbre == .sine)
+        #expect(timbreStore.loadCallCount == 0)   // init では load を呼ばない
     }
 
     /// AC-T2: load()==nil の状態で onAppear 後 → .sine。
     @Test
     func acT2_onAppearRestoresDefaultWhenEmpty() async {
-        let vm = makeViewModel(timbreStore: InMemoryToneTimbreStore(initial: nil))
+        let timbreStore = InMemoryToneTimbreStore(initial: nil)
+        let vm = makeViewModel(timbreStore: timbreStore)
         await vm.onAppear()
+        #expect(vm.toneTimbre == .sine)
+        #expect(timbreStore.loadCallCount == 1)   // onAppear で 1 回復元する
+    }
+
+    /// AC-T2b: 非 default の状態で onAppear し load()==nil → .default(=sine) に戻る
+    /// (onAppear 再入時に旧値が残らない明示フォールバックを検証)。
+    @Test
+    func acT2b_onAppearResetsToDefaultWhenStoreEmpty() async {
+        let timbreStore = InMemoryToneTimbreStore()
+        let vm = makeViewModel(timbreStore: timbreStore)
+        vm.enterToneMode()
+        vm.selectToneTimbre(.fork)                 // 現在値を非 default に(store にも保存される)
+        #expect(vm.toneTimbre == .fork)
+        timbreStore.simulateExternalClear()        // 外部要因で永続値が消えた状況
+        await vm.onAppear()                        // load()==nil → default に戻る
         #expect(vm.toneTimbre == .sine)
     }
 
