@@ -37,11 +37,9 @@ struct ToneModeView: View {
             octaveStepper
 
             // 選択クラスタと主操作(再生)の間に主たる余白を置く(可変)。
+            // 音色選択 UI は非表示(内部実装は ToneTimbre / timbreChips に温存)。
+            // 再生音色は ToneTimbre.default(.sine)に固定。
             Spacer(minLength: 28)
-
-            timbreChips
-
-            Spacer().frame(height: 12)
 
             playButton
         }
