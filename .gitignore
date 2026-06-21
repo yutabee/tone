@@ -22,6 +22,12 @@ fastlane/.env*
 *.mobileprovision
 *.cer
 
+# App Review 連絡先(PII — 公開リポにコミットしない。ローカルで fastlane に読ませる)
+fastlane/metadata/review_information/first_name.txt
+fastlane/metadata/review_information/last_name.txt
+fastlane/metadata/review_information/email_address.txt
+fastlane/metadata/review_information/phone_number.txt
+
 # fastlane 自動生成物(SSOT は Fastfile / metadata)
 fastlane/README.md
 fastlane/report.xml
