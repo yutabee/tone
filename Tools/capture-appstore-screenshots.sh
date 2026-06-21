@@ -12,6 +12,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/fastlane/screenshots/en-US"
 DD="$ROOT/build/dd"
 mkdir -p "$OUT"
+rm -f "$OUT"/*.png   # clear stale shots so renamed/removed entries don't linger
 
 cd "$ROOT"
 [ -d "Tone.xcodeproj" ] || xcodegen generate
@@ -35,10 +36,23 @@ shoot() { # <appearance> <hz> <name>
   xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
 }
 
-shoot dark  440 "01-in-tune-dark"
-shoot dark  448 "02-sharp-dark"
-shoot light 440 "03-in-tune-light"
-shoot light 448 "04-sharp-light"
+fork_shoot() { # <name>
+  # --terminate-running-process so the new launch args (FORK mode) take effect on a
+  # fresh process; --fork-demo uses the silent generator (no mic / no permission dialog).
+  xcrun simctl launch --terminate-running-process "$DEVICE" "$BUNDLE_ID" --fork-demo >/dev/null
+  sleep 2   # let the layout settle
+  xcrun simctl io "$DEVICE" screenshot "$OUT/$1.png"
+  xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" 2>/dev/null || true
+}
+
+# The faceplate is always a dark graphite "device" color regardless of the system
+# light/dark setting (see ToneTheme), so light-mode captures are visually redundant.
+# Ship one distinct shot per state/feature instead: in-tune, sharp, and the FORK
+# reference-tone screen.
+xcrun simctl ui "$DEVICE" appearance dark
+shoot dark 440 "01-in-tune"
+shoot dark 448 "02-sharp"
+fork_shoot "03-fork"
 
 echo "✓ wrote screenshots to $OUT"
 ls -1 "$OUT"

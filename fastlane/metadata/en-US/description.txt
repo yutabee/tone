@@ -7,11 +7,12 @@ WHAT IT DOES
 • Uses a calm linear scale instead of a jittery needle, so the reading is easy to trust.
 • Turns a single accent color the moment you're in tune, with a gentle haptic tap — keep your eyes on the instrument, not the screen.
 • Adjustable reference pitch: A4 from 415 to 466 Hz.
+• Reference tone (tuning fork): switch to FORK mode, pick any note and octave, and play a clean sustained tone to tune by ear — no microphone needed.
 
 PRIVATE BY DESIGN
 Audio is processed entirely on your device and is never recorded, saved, or sent anywhere. Tone works fully offline and contains no third-party tracking.
 
 DESIGNED FOR iOS
-A native Liquid Glass interface in light and dark, with VoiceOver and Dynamic Type support.
+A native Liquid Glass interface with VoiceOver and Dynamic Type support.
 
 Tune a guitar, violin, cello, wind instrument, or anything with a clear pitch.
