@@ -63,6 +63,11 @@ struct TunerCopy {
     var raiseOctave: String { t("オクターブを上げる", "Raise octave") }
     var lowerOctave: String { t("オクターブを下げる", "Lower octave") }
 
+    /// オクターブ表示の集約読み上げ(OCT + 数値を 1 要素にまとめる)。
+    func octaveValue(_ octave: Int) -> String {
+        language == .ja ? "オクターブ \(octave)" : "Octave \(octave)"
+    }
+
     /// 音名選択ボタンの読み(C / C シャープ …)。
     func toneNoteName(_ name: NoteName) -> String { spokenNoteName(name) }
 

@@ -133,6 +133,8 @@ struct ToneModeView: View {
                     .foregroundStyle(theme.needle)
             }
             .frame(minWidth: 44)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(copy.octaveValue(selection.octave))
 
             octaveButton(symbol: "plus", label: copy.raiseOctave,
                          enabled: selection.octave < ToneRange.maxOctave) {
@@ -155,7 +157,7 @@ struct ToneModeView: View {
             Image(systemName: symbol)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(enabled ? theme.faceMuted : theme.ledOff)
-                .frame(width: 34, height: 34)
+                .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
         .disabled(!enabled)

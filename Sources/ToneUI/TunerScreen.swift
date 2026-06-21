@@ -182,13 +182,14 @@ public struct TunerScreen: View {
                              action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 10, weight: .bold)).tracking(2)
+                .font(.system(.caption2, weight: .bold)).tracking(2)
                 .foregroundStyle(active ? theme.faceBottom : theme.faceMuted)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
                 .background {
                     if active { Capsule(style: .continuous).fill(theme.needle) }
                 }
+                .frame(minHeight: 44)
                 .contentShape(Capsule(style: .continuous))
         }
         .accessibilityLabel(label)
@@ -233,7 +234,7 @@ public struct TunerScreen: View {
             Image(systemName: symbol)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(theme.faceMuted)
-                .frame(width: 30, height: 30)
+                .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel(label)
