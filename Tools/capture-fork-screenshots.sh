@@ -23,8 +23,8 @@ APP="$(find "$DD/Build/Products/Debug-iphonesimulator" -maxdepth 1 -name 'Tone.a
 [ -n "$APP" ] || { echo "Tone.app not found"; exit 1; }
 
 # bundle ID はハードコードせず、実際にビルドした .app から読む。project.yml の
-# 既定 (jp.syncbloom.tone) と、release 用に pbxproj をローカル変更した値
-# (com.yutabee.tone) の両方で、必ず「いま起動するバイナリ」の ID を使う。
+# 既定 (com.yutabee.tone) でも、ローカルで別 ID に変更している場合でも、
+# 必ず「いま起動するバイナリ」の ID を使う。
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")"
 echo "▶ bundle: $BUNDLE_ID"
 

@@ -103,7 +103,7 @@ Pick one:
 - **fastlane:** `bundle exec fastlane beta` (uploads to TestFlight) — see `fastlane/Fastfile`.
 
 ## 7. Metadata + screenshots
-- Drafts live in `fastlane/metadata/{en-US,ja}/` and screenshots in `fastlane/screenshots/{en-US,ja}/`.
+- Drafts live in `fastlane/metadata/{en-US,ja}/` and screenshots in `fastlane/screenshots/en-US/`.
 - Upload them: `bundle exec fastlane metadata` — **or** paste the text and drag the images in App Store Connect by hand.
 - Required screenshot sizes: 6.9" (1320×2868) and 6.5"/6.7" iPhone. Generate with `Tools/capture-appstore-screenshots.sh`.
 

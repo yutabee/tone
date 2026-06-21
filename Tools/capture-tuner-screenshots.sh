@@ -23,8 +23,9 @@ xcodebuild -project Tone.xcodeproj -scheme Tone -configuration Debug \
 APP="$(find "$DD/Build/Products/Debug-iphonesimulator" -maxdepth 1 -name 'Tone.app' | head -1)"
 [ -n "$APP" ] || { echo "Tone.app not found"; exit 1; }
 
-# bundle ID はハードコードせず、実際にビルドした .app から読む (jp.syncbloom.tone /
-# com.yutabee.tone のどちらでも「いま起動するバイナリ」の ID を使う)。
+# bundle ID はハードコードせず、実際にビルドした .app から読む
+# (project.yml の既定 com.yutabee.tone でも、ローカルで別 ID にしていても、
+# 必ず「いま起動するバイナリ」の ID を使う)。
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")"
 echo "▶ bundle: $BUNDLE_ID"
 
