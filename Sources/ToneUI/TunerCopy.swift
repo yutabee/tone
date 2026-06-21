@@ -63,6 +63,32 @@ struct TunerCopy {
     var raiseOctave: String { t("オクターブを上げる", "Raise octave") }
     var lowerOctave: String { t("オクターブを下げる", "Lower octave") }
 
+    func timbreLabel(_ timbre: ToneTimbre) -> String {
+        switch timbre {
+        case .sine:
+            return t("サイン", "Sine")
+        case .triangle:
+            return t("三角", "Triangle")
+        case .sawtooth:
+            return t("ノコギリ", "Saw")
+        case .fork:
+            return t("音叉", "Fork")
+        }
+    }
+
+    func timbreAccessibilityLabel(_ timbre: ToneTimbre) -> String {
+        switch timbre {
+        case .sine:
+            return t("サイン波", "Sine")
+        case .triangle:
+            return t("三角波", "Triangle")
+        case .sawtooth:
+            return t("ノコギリ波", "Sawtooth")
+        case .fork:
+            return t("音叉、FM", "Tuning fork")
+        }
+    }
+
     /// オクターブ表示の集約読み上げ(OCT + 数値を 1 要素にまとめる)。
     func octaveValue(_ octave: Int) -> String {
         language == .ja ? "オクターブ \(octave)" : "Octave \(octave)"

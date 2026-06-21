@@ -14,6 +14,7 @@ struct ToneModeView: View {
 
     private let copy = TunerCopy()
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 4)
+    private let timbreOrder: [ToneTimbre] = [.sine, .triangle, .sawtooth, .fork]
 
     private var playing: Bool { model.isTonePlaying }
     private var selection: ToneSelection { model.toneSelection }
@@ -37,6 +38,10 @@ struct ToneModeView: View {
 
             // 選択クラスタと主操作(再生)の間に主たる余白を置く(可変)。
             Spacer(minLength: 28)
+
+            timbreChips
+
+            Spacer().frame(height: 12)
 
             playButton
         }
@@ -164,6 +169,48 @@ struct ToneModeView: View {
         }
         .disabled(!enabled)
         .accessibilityLabel(label)
+    }
+
+    // MARK: - 音色選択
+
+    private var timbreChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(timbreOrder, id: \.self) { timbre in
+                    timbreChip(timbre)
+                }
+            }
+            .padding(.horizontal, 1)
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func timbreChip(_ timbre: ToneTimbre) -> some View {
+        let selected = timbre == model.toneTimbre
+        let lit = selected && playing
+        let shape = Capsule(style: .continuous)
+        return Button {
+            model.selectToneTimbre(timbre)
+        } label: {
+            Text(copy.timbreLabel(timbre))
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .foregroundStyle(selected ? theme.faceBottom : theme.needle)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background {
+                    shape.fill(selected ? (lit ? theme.signal : theme.needle) : Color.black.opacity(0.24))
+                }
+                .overlay {
+                    shape.strokeBorder(Color.white.opacity(selected ? 0 : 0.06), lineWidth: 1)
+                }
+                .shadow(color: lit && deviceGlow ? theme.signal.opacity(0.55) : .clear,
+                        radius: lit && deviceGlow ? 8 : 0)
+                .contentShape(shape)
+        }
+        .accessibilityLabel(copy.timbreAccessibilityLabel(timbre))
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
     // MARK: - 再生トグル
