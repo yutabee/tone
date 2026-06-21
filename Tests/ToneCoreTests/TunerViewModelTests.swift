@@ -15,7 +15,8 @@ struct TunerViewModelTests {
             engine: engine,
             processor: TuningProcessor(converter: NoteConverter(referenceA4: referenceA4)),
             store: store,
-            clock: clock
+            clock: clock,
+            toneGenerator: MockToneGenerator()
         )
     }
 

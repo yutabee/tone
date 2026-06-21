@@ -8,6 +8,11 @@ import Observation
 @MainActor
 @Observable
 public final class TunerViewModel {
+    public enum Mode: Equatable {
+        case tuner
+        case tone
+    }
+
     public enum State: Equatable {
         /// 起動直後。
         case idle
@@ -25,24 +30,35 @@ public final class TunerViewModel {
 
     public private(set) var state: State = .idle
     public private(set) var referenceA4: Double
+    public private(set) var mode: Mode = .tuner
+    public private(set) var toneSelection: ToneSelection = ToneRange.defaultSelection
+    public private(set) var isTonePlaying = false
 
     private let engine: any PitchEngine
     private var processor: TuningProcessor
     private let store: any ReferencePitchStore
     private let clock: any Clock
+    private let toneGenerator: any ToneGenerator
     private var tuningState = TuningState()
+    private var permissionState: PermissionState = .notDetermined
 
     public init(
         engine: any PitchEngine,
         processor: TuningProcessor,
         store: any ReferencePitchStore,
-        clock: any Clock
+        clock: any Clock,
+        toneGenerator: any ToneGenerator
     ) {
         self.engine = engine
         self.processor = processor
         self.store = store
         self.clock = clock
+        self.toneGenerator = toneGenerator
         self.referenceA4 = processor.converter.referenceA4
+
+        toneGenerator.onStopped = { [weak self] _ in
+            self?.isTonePlaying = false
+        }
     }
 
     /// 起動シーケンス: `store.load()` で基準ピッチ復元 → `requestPermission()` →
@@ -59,7 +75,10 @@ public final class TunerViewModel {
 
         state = .requestingPermission
 
-        switch await engine.requestPermission() {
+        let permissionState = await engine.requestPermission()
+        self.permissionState = permissionState
+
+        switch permissionState {
         case .granted:
             startEngine()
         case .denied:
@@ -78,6 +97,7 @@ public final class TunerViewModel {
     /// `referenceA4` を更新する。
     public func setReferenceA4(_ hz: Double) {
         updateReferenceA4(hz, shouldSave: true)
+        updatePlayingToneIfNeeded()
     }
 
     /// `engineError` からの再試行。
@@ -88,11 +108,71 @@ public final class TunerViewModel {
     /// 無音評価。UI 更新周期(`TimelineView` / タイマー)から呼ぶ。
     /// `clock.now` を使って `processor.evaluateSilence` を適用し、無音なら `.listening` へ反映する。
     public func evaluateSilence() {
+        guard mode != .tone else { return }
+
         tuningState = processor.evaluateSilence(tuningState, now: clock.now)
         applyTuningStateToViewState()
     }
 
+    /// 音叉モードへ移行し、検出器を停止する。
+    public func enterToneMode() {
+        engine.stop()
+        isTonePlaying = false
+        mode = .tone
+    }
+
+    /// チューナーモードへ戻り、保持済みの権限状態に応じて検出を復帰する。
+    public func exitToneMode() async {
+        if isTonePlaying {
+            toneGenerator.stop()
+            isTonePlaying = false
+        }
+
+        mode = .tuner
+
+        switch permissionState {
+        case .granted:
+            startEngine()
+        case .denied:
+            state = .permissionDenied
+        case .notDetermined:
+            break
+        }
+    }
+
+    /// 音叉モード中だけリファレンストーンの再生 / 停止を切り替える。
+    public func toggleTone() {
+        guard mode == .tone else { return }
+
+        if isTonePlaying {
+            toneGenerator.stop()
+            isTonePlaying = false
+            return
+        }
+
+        playSelectedTone()
+    }
+
+    /// 音叉モード中だけ音名を変更する。
+    public func selectToneNote(_ name: NoteName) {
+        guard mode == .tone else { return }
+
+        toneSelection = ToneSelection(name: name, octave: toneSelection.octave)
+        updatePlayingToneIfNeeded()
+    }
+
+    /// 音叉モード中だけオクターブを変更する。
+    public func adjustToneOctave(_ delta: Int) {
+        guard mode == .tone else { return }
+
+        let octave = min(max(toneSelection.octave + delta, ToneRange.minOctave), ToneRange.maxOctave)
+        toneSelection = ToneSelection(name: toneSelection.name, octave: octave)
+        updatePlayingToneIfNeeded()
+    }
+
     private func handle(_ reading: PitchReading) {
+        guard mode != .tone else { return }
+
         tuningState = processor.ingest(tuningState, reading)
         applyTuningStateToViewState()
     }
@@ -119,6 +199,8 @@ public final class TunerViewModel {
     }
 
     private func startEngine() {
+        guard mode != .tone else { return }
+
         do {
             try engine.start()
             state = .listening
@@ -140,5 +222,20 @@ public final class TunerViewModel {
             config: processor.config
         )
         referenceA4 = clamped
+    }
+
+    private func updatePlayingToneIfNeeded() {
+        guard mode == .tone, isTonePlaying else { return }
+
+        playSelectedTone()
+    }
+
+    private func playSelectedTone() {
+        do {
+            try toneGenerator.play(frequency: toneSelection.frequency(referenceA4: referenceA4))
+            isTonePlaying = true
+        } catch {
+            isTonePlaying = false
+        }
     }
 }
