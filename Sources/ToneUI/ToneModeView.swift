@@ -30,11 +30,13 @@ struct ToneModeView: View {
 
             noteGrid
 
-            Spacer(minLength: 18)
+            // grid と OCT を 1 つの選択クラスタとして近接させる(固定間隔)。
+            Spacer().frame(height: 14)
 
             octaveStepper
 
-            Spacer(minLength: 22)
+            // 選択クラスタと主操作(再生)の間に主たる余白を置く(可変)。
+            Spacer(minLength: 28)
 
             playButton
         }
@@ -59,7 +61,7 @@ struct ToneModeView: View {
 
                 Text("\(selection.octave)")
                     .font(.system(size: heroSize * 0.34, weight: .medium, design: .rounded))
-                    .foregroundStyle(theme.faceMuted)
+                    .foregroundStyle(theme.needle.opacity(0.7))
                     .lineLimit(1)
             }
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: playing)

@@ -169,7 +169,7 @@ public struct TunerScreen: View {
             modeSegment(title: "TUNER", active: model.mode == .tuner, label: copy.tunerModeLabel) {
                 if model.mode != .tuner { Task { await model.exitToneMode() } }
             }
-            modeSegment(title: "TONE", active: model.mode == .tone, label: copy.toneModeLabel) {
+            modeSegment(title: "FORK", active: model.mode == .tone, label: copy.toneModeLabel) {
                 if model.mode != .tone { model.enterToneMode() }
             }
         }
@@ -349,7 +349,7 @@ public struct TunerScreen: View {
             if let octave = note?.octave {
                 Text("\(octave)")
                     .font(.system(size: heroSize * 0.34, weight: .medium, design: .rounded))
-                    .foregroundStyle(theme.faceMuted)
+                    .foregroundStyle(theme.needle.opacity(0.7))
                     .lineLimit(1)
             }
 
