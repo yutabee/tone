@@ -7,6 +7,10 @@ import ToneCore
 @MainActor
 final class DemoPitchEngine: PitchEngine {
     var onReading: (@MainActor (PitchReading) -> Void)?
+    var onStopped: (@MainActor (PitchEngineError) -> Void)?
+
+    /// デモは常に許可済みとして振る舞う(権限ダイアログを出さない)。
+    var currentPermission: PermissionState { .granted }
 
     private let frequency: Double
     private let clock: any Clock

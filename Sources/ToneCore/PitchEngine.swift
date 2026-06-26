@@ -22,6 +22,13 @@ public enum PitchEngineError: Error, Equatable, Sendable {
 public protocol PitchEngine: AnyObject {
     /// 有効フレームごとに呼ばれる。`stop()` 後は呼ばれない。
     var onReading: (@MainActor (PitchReading) -> Void)? { get set }
+    /// システム要因で検出が停止し自動復帰できなかったときに発火する
+    /// (割り込み非復帰 / route 変更後の再起動失敗 / media reset 失敗)。
+    /// ユーザ操作 `stop()` 由来では呼ばない。ViewModel はこれを受けて `.engineError` を出す。
+    var onStopped: (@MainActor (PitchEngineError) -> Void)? { get set }
+    /// ダイアログを伴わない現在のマイク権限。再起動前の再確認に使う
+    /// (設定アプリでの取り消し後にエンジンを盲目的に起動しないため)。
+    var currentPermission: PermissionState { get }
     /// 初回ダイアログを伴う権限要求(非同期)。
     func requestPermission() async -> PermissionState
     /// `granted` 前提で開始。冪等(二重 `start` は no-op)。

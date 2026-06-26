@@ -44,7 +44,12 @@ public final class TunerViewModel {
     private let toneGenerator: any ToneGenerator
     private let timbreStore: any ToneTimbreStore
     private var tuningState = TuningState()
-    private var permissionState: PermissionState = .notDetermined
+    /// `engine.start()` 失敗時の retry 前 backoff。要素数 = retry 回数(総試行 = 1 + count)。
+    /// 付与直後の HAL settle 待ちなど transient な失敗を吸収する。テストは `[]` / `[.zero]` を注入。
+    private let retryDelays: [Duration]
+    /// 進行中の起動試行を識別する世代印。停止 / モード変更 / 再起動で増やし、
+    /// backoff から起きた古いループを無効化する(背景化後の再起動・二重起動を防ぐ)。
+    private var startGeneration = 0
 
     public init(
         engine: any PitchEngine,
@@ -52,7 +57,8 @@ public final class TunerViewModel {
         store: any ReferencePitchStore,
         clock: any Clock,
         toneGenerator: any ToneGenerator,
-        timbreStore: any ToneTimbreStore
+        timbreStore: any ToneTimbreStore,
+        engineStartRetryDelays: [Duration] = [.milliseconds(120), .milliseconds(350)]
     ) {
         self.engine = engine
         self.processor = processor
@@ -61,6 +67,7 @@ public final class TunerViewModel {
         self.toneGenerator = toneGenerator
         self.timbreStore = timbreStore
         self.referenceA4 = processor.converter.referenceA4
+        self.retryDelays = engineStartRetryDelays
 
         toneGenerator.onStopped = { [weak self] _ in
             self?.isTonePlaying = false
@@ -81,15 +88,15 @@ public final class TunerViewModel {
         engine.onReading = { [weak self] reading in
             self?.handle(reading)
         }
+        engine.onStopped = { [weak self] error in
+            self?.handleEngineStopped(error)
+        }
 
         state = .requestingPermission
 
-        let permissionState = await engine.requestPermission()
-        self.permissionState = permissionState
-
-        switch permissionState {
+        switch await engine.requestPermission() {
         case .granted:
-            startEngine()
+            await startEngine()
         case .denied:
             state = .permissionDenied
         case .notDetermined:
@@ -101,6 +108,7 @@ public final class TunerViewModel {
     /// `isTonePlaying` を同期する(復帰時に自動再生しない / 状態遷移表準拠)。
     public func onDisappear() {
         engine.stop()
+        startGeneration += 1 // backoff 待機中の起動ループを無効化する(停止後の再起動を防ぐ)。
         if isTonePlaying {
             toneGenerator.stop()
             isTonePlaying = false
@@ -116,7 +124,7 @@ public final class TunerViewModel {
 
     /// `engineError` からの再試行。
     public func retry() async {
-        startEngine()
+        await startEngine()
     }
 
     /// 無音評価。UI 更新周期(`TimelineView` / タイマー)から呼ぶ。
@@ -131,6 +139,7 @@ public final class TunerViewModel {
     /// 音叉モードへ移行し、検出器を停止する。再入(既に再生中)でも実出力を確実に止める。
     public func enterToneMode() {
         engine.stop()
+        startGeneration += 1 // backoff 待機中の起動ループを無効化する。
         if isTonePlaying {
             toneGenerator.stop()
             isTonePlaying = false
@@ -146,15 +155,7 @@ public final class TunerViewModel {
         }
 
         mode = .tuner
-
-        switch permissionState {
-        case .granted:
-            startEngine()
-        case .denied:
-            state = .permissionDenied
-        case .notDetermined:
-            break
-        }
+        await startEngine()
     }
 
     /// 音叉モード中だけリファレンストーンの再生 / 停止を切り替える。
@@ -224,16 +225,58 @@ public final class TunerViewModel {
         }
     }
 
-    private func startEngine() {
+    /// システム要因(割り込み非復帰 / route 復帰失敗 / media reset 失敗)でエンジンが
+    /// 止まったときの反映。tuner モードでのみ `.engineError` を出し、手動再試行導線を見せる。
+    /// (`engine.stop()` 由来では発火しない契約。)
+    private func handleEngineStopped(_ error: PitchEngineError) {
+        guard mode != .tone else { return }
+        state = .engineError(error)
+    }
+
+    /// 検出を開始する。起動前にマイク権限を再確認し(設定アプリでの取り消し検知)、
+    /// `granted` のときだけ起動する。付与直後など transient な起動失敗は `retryDelays` の
+    /// 範囲で再試行し、使い切ってから `.engineError` を出す
+    /// (scenePhase / ボタンの手動「もう一度」が最終 fallback)。
+    private func startEngine() async {
         guard mode != .tone else { return }
 
-        do {
-            try engine.start()
-            state = .listening
-        } catch let error as PitchEngineError {
-            state = .engineError(error)
-        } catch {
-            state = .engineError(.engineUnavailable)
+        switch engine.currentPermission {
+        case .denied:
+            state = .permissionDenied
+            return
+        case .notDetermined:
+            return
+        case .granted:
+            break
+        }
+
+        // この起動試行に世代印を付ける。backoff 中に別の起動 / 停止(onDisappear)/ モード変更が
+        // 来たら、起きた時点で世代不一致になり古いループは start() を呼ばず state も書かない。
+        // = 背景化後のマイク再起動・二重起動・stale な終端状態の上書きを防ぐ。
+        startGeneration += 1
+        let generation = startGeneration
+
+        var attempt = 0
+        while true {
+            do {
+                try engine.start()
+                state = .listening
+                return
+            } catch {
+                let pitchError = (error as? PitchEngineError) ?? .engineUnavailable
+                guard attempt < retryDelays.count else {
+                    state = .engineError(pitchError)
+                    return
+                }
+                do {
+                    try await Task.sleep(for: retryDelays[attempt])
+                } catch {
+                    return // キャンセル(view 破棄など)で中断
+                }
+                attempt += 1
+                // backoff 中に停止 / 起動し直し / 音叉モードへ移っていたら破棄する。
+                guard generation == startGeneration, mode != .tone else { return }
+            }
         }
     }
 

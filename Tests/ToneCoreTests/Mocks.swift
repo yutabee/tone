@@ -6,15 +6,24 @@ import Foundation
 @MainActor
 final class MockPitchEngine: PitchEngine {
     var onReading: (@MainActor (PitchReading) -> Void)?
+    var onStopped: (@MainActor (PitchEngineError) -> Void)?
 
     /// `requestPermission()` が返す値。
     var permissionResult: PermissionState = .granted
+    /// `currentPermission` が返す値。未設定なら `permissionResult` に追随する
+    /// (= 権限が途中で変わらない通常ケース)。
+    var currentPermissionResult: PermissionState?
     /// `start()` が投げるエラー(`nil` なら成功)。
     var startError: PitchEngineError?
+    /// 設定時は `start()` ごとに先頭から 1 つ消費する(transient 失敗 → 成功の retry テスト用)。
+    /// 空になったら `startError` にフォールバックする。
+    var startErrorSequence: [PitchEngineError?] = []
 
     private(set) var startCallCount = 0
     private(set) var stopCallCount = 0
     private(set) var permissionRequestCount = 0
+
+    var currentPermission: PermissionState { currentPermissionResult ?? permissionResult }
 
     func requestPermission() async -> PermissionState {
         permissionRequestCount += 1
@@ -23,6 +32,12 @@ final class MockPitchEngine: PitchEngine {
 
     func start() throws {
         startCallCount += 1
+        if !startErrorSequence.isEmpty {
+            if let error = startErrorSequence.removeFirst() {
+                throw error
+            }
+            return
+        }
         if let startError {
             throw startError
         }
@@ -35,6 +50,12 @@ final class MockPitchEngine: PitchEngine {
     /// `onReading` を手動発火する(検出フレーム到来をシミュレート)。
     func emit(_ reading: PitchReading) {
         onReading?(reading)
+    }
+
+    /// 割り込み非復帰 / route 変更後の再起動失敗 / media reset 相当のシステム要因停止を
+    /// シミュレートし `onStopped` を発火する。
+    func simulateStop(_ error: PitchEngineError) {
+        onStopped?(error)
     }
 }
 
