@@ -1,3 +1,5 @@
-First release.
+Bug fixes and reliability improvements:
 
-A calm, private, fully-offline chromatic tuner — note, octave, and cents, with a single accent on the moment you lock in.
+• The microphone now starts reliably right after you grant access, and recovers on its own after calls, Siri, or unplugging headphones.
+• Tuning prefers the built-in microphone over a Bluetooth headset for more accurate pitch.
+• Other apps' music or podcasts now resume after you leave Tone.
