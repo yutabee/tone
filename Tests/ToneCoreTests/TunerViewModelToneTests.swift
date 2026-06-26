@@ -19,7 +19,8 @@ struct TunerViewModelToneTests {
             store: store,
             clock: clock,
             toneGenerator: generator,
-            timbreStore: timbreStore
+            timbreStore: timbreStore,
+            engineStartRetryDelays: []
         )
     }
 
