@@ -177,7 +177,8 @@ public final class AudioKitToneGenerator: ToneGenerator {
     private func deactivateSessionIfCurrent(_ generation: Int) {
         guard notificationGeneration == generation else { return }
         do {
-            try AVAudioSession.sharedInstance().setActive(false)
+            // 退出時に他アプリの音楽 / podcast を復帰させる。
+            try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
         } catch {
             Self.logger.error("AVAudioSession の無効化に失敗: \(error.localizedDescription, privacy: .public)")
         }
