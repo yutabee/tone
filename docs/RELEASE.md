@@ -3,6 +3,35 @@
 This is the end-to-end runbook. Steps marked **(human)** need your Apple account,
 payment, or a manual decision and cannot be automated.
 
+## Release paths — which one to use
+
+Three layers, in order of preference. **Prefer CI; raw xcodebuild is a fallback.**
+
+| Path | When | How |
+|---|---|---|
+| **CI — GitHub Actions (primary)** | Cutting a real release | `.github/workflows/release.yml` (see next section) |
+| **Local fastlane** | One-off from your Mac | `fastlane beta` / `submit` / `release` (§A) — needs the env in §1 + signing in §A |
+| **Raw xcodebuild (fallback)** | fastlane unavailable | §3–§9 — manual archive / export / upload |
+
+### CI release (GitHub Actions) — primary
+
+`release.yml` runs the same fastlane lanes on a `macos` runner, so no local Mac
+state is required to ship.
+
+- **Triggers**: push a `v*` tag → `beta` (build + TestFlight, **no** submission);
+  **Actions → Release → Run workflow → lane = `submit`** → review + auto-release
+  (kept manual because submission is irreversible).
+- **Build number**: auto-derived as *latest TestFlight build + 1*
+  (`fastlane next_build_number`), so it never collides — no manual
+  `CURRENT_PROJECT_VERSION` bump for the binary. Still bump `MARKETING_VERSION`
+  for a new user-facing version.
+- **Required GitHub Secrets** (Settings → Secrets and variables → Actions):
+  `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_API_KEY_P8` (`.p8` base64), `DEVELOPMENT_TEAM`,
+  `DIST_CERT_P12` (Apple Distribution `.p12` base64), `DIST_CERT_PASSWORD`,
+  `DIST_PROFILE` (`Tone App Store` profile base64).
+- **Cert / profile renewal**: both expire (~1 yr). On expiry, re-export and update
+  `DIST_CERT_P12` / `DIST_PROFILE`.
+
 ## 0. One-time prerequisites
 - **(human)** Apple Developer Program membership (enrolled).
 - Your 10-character **Team ID** (App Store Connect → Membership, or `developer.apple.com/account`).
@@ -15,7 +44,7 @@ export DEVELOPMENT_TEAM=XXXXXXXXXX   # your 10-char Team ID
 ```
 For the manual xcodebuild path (steps 3–9) also set `teamID` in `ExportOptions.plist`.
 
-## A. Automated release — fastlane + App Store Connect API key (recommended)
+## A. Local fastlane — fastlane + App Store Connect API key
 Auth uses an **App Store Connect API key (.p8)** — no Apple ID password, no 2FA, and
 no expiring session. The key replaces both spaceauth and the app-specific password.
 After the app record exists, one command does build → upload → metadata → submit.
@@ -70,6 +99,11 @@ so the setting never bleeds into the SPM dependencies. Once both are installed,
    `https://github.com/yutabee/tone/blob/main/docs/privacy-policy.md`
    (or enable GitHub Pages on `/docs` for a cleaner URL).
 4. App Privacy → **Data Not Collected** (matches `App/PrivacyInfo.xcprivacy`).
+
+> **§3–§9 are the raw-xcodebuild FALLBACK.** Prefer CI (`release.yml`) or local
+> `fastlane` (§A); use these only when fastlane is unavailable. `ExportOptions.plist`
+> is used **only** by this path — fastlane passes its export options inline, so the
+> `REPLACE_WITH_TEAM_ID` placeholder there matters only if you run §5 by hand.
 
 ## 3. Generate the Xcode project
 ```bash
