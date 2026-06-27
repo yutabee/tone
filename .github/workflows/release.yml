@@ -41,7 +41,6 @@ jobs:
       DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-      ASC_KEY_FILEPATH: ${{ runner.temp }}/AuthKey.p8
       FASTLANE_SKIP_UPDATE_CHECK: '1'
       FASTLANE_HIDE_CHANGELOG: '1'
     steps:
@@ -54,11 +53,16 @@ jobs:
       - name: Install tools
         run: brew install xcodegen fastlane
 
-      # API キー(.p8)を secret から復元。upload/submit/採番すべてで使う。
+      # API キー(.p8)を secret から復元し、ASC_KEY_FILEPATH を後続 step へ渡す。
+      # runner.temp は job レベル env では使えない(runner コンテキストは step 内のみ)ため、
+      # 環境変数 $RUNNER_TEMP を step で使って GITHUB_ENV へ書き出す。
       - name: Write ASC API key
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
         run: |
-          mkdir -p "$(dirname "$ASC_KEY_FILEPATH")"
-          printf '%s' "${{ secrets.ASC_API_KEY_P8 }}" | base64 --decode > "$ASC_KEY_FILEPATH"
+          KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s' "$ASC_API_KEY_P8" | base64 --decode > "$KEY_PATH"
+          echo "ASC_KEY_FILEPATH=$KEY_PATH" >> "$GITHUB_ENV"
 
       # 署名は beta(=ビルドあり)のときだけ用意する。submit はビルドしないので不要。
       - name: Import signing certificate
