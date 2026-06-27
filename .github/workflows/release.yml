@@ -99,5 +99,11 @@ jobs:
         if: env.LANE == 'beta'
         run: fastlane next_build_number
 
+      # submit は metadata を上げないため、提出前にリポジトリの What's New / metadata を
+      # ASC へ反映してリポジトリを SSOT に保つ(ASC web の手入力との乖離を防ぐ)。
+      - name: Sync metadata (submit only)
+        if: env.LANE == 'submit'
+        run: fastlane metadata
+
       - name: Run fastlane ${{ env.LANE }}
         run: fastlane "$LANE"
