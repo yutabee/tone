@@ -1,0 +1,99 @@
+name: Release
+
+# 署名ビルドを App Store Connect に届ける。
+#   - tag `v*` を push  → `beta`(ビルド + TestFlight upload。提出はしない＝安全)
+#   - 手動 dispatch      → `beta` か `submit` を選択(`submit` は審査提出 + 承認後 自動公開＝不可逆)
+# 不可逆な提出を tag から自動実行しないよう、`submit` は手動 dispatch に隔離している。
+#
+# 必要な GitHub Secrets(Settings → Secrets and variables → Actions):
+#   ASC_KEY_ID          App Store Connect API キーの Key ID(例 H92BGS247T)
+#   ASC_ISSUER_ID       Issuer ID(チーム共通の UUID)
+#   ASC_API_KEY_P8      AuthKey_XXXX.p8 を base64 した文字列
+#   DEVELOPMENT_TEAM    10桁の Team ID
+#   DIST_CERT_P12       配布証明書(Apple Distribution)を .p12 書き出し → base64
+#   DIST_CERT_PASSWORD  その .p12 のパスワード
+#   DIST_PROFILE        プロビジョニングプロファイル "Tone App Store" を base64
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: 'fastlane lane: beta=TestFlight のみ / submit=審査提出+承認後 自動公開(不可逆)'
+        type: choice
+        options: [beta, submit]
+        default: beta
+
+# リリース実行は途中キャンセルしない(アップロード中断を避ける)。
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build & deliver
+    runs-on: macos-15
+    env:
+      LANE: ${{ github.event.inputs.lane || 'beta' }}
+      DEVELOPMENT_TEAM: ${{ secrets.DEVELOPMENT_TEAM }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_FILEPATH: ${{ runner.temp }}/AuthKey.p8
+      FASTLANE_SKIP_UPDATE_CHECK: '1'
+      FASTLANE_HIDE_CHANGELOG: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install tools
+        run: brew install xcodegen fastlane
+
+      # API キー(.p8)を secret から復元。upload/submit/採番すべてで使う。
+      - name: Write ASC API key
+        run: |
+          mkdir -p "$(dirname "$ASC_KEY_FILEPATH")"
+          printf '%s' "${{ secrets.ASC_API_KEY_P8 }}" | base64 --decode > "$ASC_KEY_FILEPATH"
+
+      # 署名は beta(=ビルドあり)のときだけ用意する。submit はビルドしないので不要。
+      - name: Import signing certificate
+        if: env.LANE == 'beta'
+        env:
+          DIST_CERT_P12: ${{ secrets.DIST_CERT_P12 }}
+          DIST_CERT_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PW="$(uuidgen)"
+          CERT="$RUNNER_TEMP/dist.p12"
+          printf '%s' "$DIST_CERT_P12" | base64 --decode > "$CERT"
+          security create-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+          security import "$CERT" -P "$DIST_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PW" "$KEYCHAIN" >/dev/null
+          # 作成した keychain を検索リストの先頭に置き、login keychain も残す。
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed s/\"//g)
+
+      - name: Install provisioning profile
+        if: env.LANE == 'beta'
+        env:
+          DIST_PROFILE: ${{ secrets.DIST_PROFILE }}
+        run: |
+          set -euo pipefail
+          PROFILES="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILES"
+          printf '%s' "$DIST_PROFILE" | base64 --decode > "$PROFILES/Tone_App_Store.mobileprovision"
+
+      # TestFlight の最新ビルド番号 +1 を BUILD_NUMBER に出す(手動採番不要・衝突防止)。
+      - name: Next build number
+        if: env.LANE == 'beta'
+        run: fastlane next_build_number
+
+      - name: Run fastlane ${{ env.LANE }}
+        run: fastlane "$LANE"
