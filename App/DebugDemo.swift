@@ -53,5 +53,6 @@ final class SilentToneGenerator: ToneGenerator {
     var onStopped: (@MainActor (ToneGeneratorStopReason) -> Void)?
     func play(frequency: Double, timbre: ToneTimbre) throws {}
     func stop() {}
+    func stopWithoutDeactivating() {}
 }
 #endif

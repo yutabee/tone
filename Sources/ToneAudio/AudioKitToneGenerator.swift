@@ -74,6 +74,12 @@ public final class AudioKitToneGenerator: ToneGenerator {
         removeNotificationObservers()
     }
 
+    /// セッションを無効化せず停止する(FORK→TUNER handoff 用)。TODO(codex): 実装で
+    /// `stopAudioGraph(deactivateSession: false, useEnvelope: true)` に置き換える。
+    public func stopWithoutDeactivating() {
+        stop()
+    }
+
     private func startAudioGraph(frequency: Double, timbre: ToneTimbre) throws {
         let session = AVAudioSession.sharedInstance()
 

@@ -12,6 +12,7 @@ final class MockToneGenerator: ToneGenerator {
 
     private(set) var playCallCount = 0
     private(set) var stopCallCount = 0
+    private(set) var stopWithoutDeactivatingCallCount = 0
     private(set) var lastFrequency: Double?
     private(set) var lastTimbre: ToneTimbre?
     private(set) var isPlaying = false
@@ -28,6 +29,11 @@ final class MockToneGenerator: ToneGenerator {
 
     func stop() {
         stopCallCount += 1
+        isPlaying = false
+    }
+
+    func stopWithoutDeactivating() {
+        stopWithoutDeactivatingCallCount += 1
         isPlaying = false
     }
 

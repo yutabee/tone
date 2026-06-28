@@ -50,6 +50,8 @@ public final class TunerViewModel {
     /// 進行中の起動試行を識別する世代印。停止 / モード変更 / 再起動で増やし、
     /// backoff から起きた古いループを無効化する(背景化後の再起動・二重起動を防ぐ)。
     private var startGeneration = 0
+    /// 現在 scene が前面(.active)か。`setScenePhaseActive` が更新し、背景復帰の判定に使う。
+    private var sceneActive = true
 
     public init(
         engine: any PitchEngine,
@@ -113,6 +115,14 @@ public final class TunerViewModel {
             toneGenerator.stop()
             isTonePlaying = false
         }
+    }
+
+    /// scenePhase 連動のマイク制御。View は `.active`→`true` / `.background`→`false` を転送し、
+    /// `.inactive`(Control Center / バナー / 権限ダイアログ)は転送しない。
+    /// TODO(codex): `false→true` 遷移かつ `hasAppeared && mode == .tuner` のときだけ
+    /// `await startEngine()`、`true→false` 遷移で停止する実装に置き換える。
+    public func setScenePhaseActive(_ active: Bool) async {
+        sceneActive = active
     }
 
     /// 基準ピッチ変更: `415...466` にクランプ → `store.save` → `processor` / `converter` を再構築し

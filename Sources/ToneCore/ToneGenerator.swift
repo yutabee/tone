@@ -24,4 +24,7 @@ public protocol ToneGenerator: AnyObject {
     func play(frequency: Double, timbre: ToneTimbre) throws
     /// 停止。冪等。`onStopped` は呼ばない。
     func stop()
+    /// 停止するがオーディオセッションは無効化しない。直後に別コンポーネント(ピッチ検出)が
+    /// セッションを引き継ぐ handoff 用(FORK→TUNER)。冪等。`onStopped` は呼ばない。
+    func stopWithoutDeactivating()
 }
