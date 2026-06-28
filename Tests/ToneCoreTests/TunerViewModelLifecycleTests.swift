@@ -112,4 +112,60 @@ struct TunerViewModelLifecycleTests {
         #expect(engine.startCallCount == 1)
         #expect(vm.state == .listening)
     }
+
+    /// F1: 権限 denied で exitToneMode すると pitch が引き継げないため handoff せず、
+    /// 通常 stop() でセッションを解放する (他アプリ音声の復帰)。
+    @Test
+    func exitToneModeWhenDeniedDeactivates() async {
+        let engine = MockPitchEngine()
+        engine.permissionResult = .denied
+        let tone = MockToneGenerator()
+        let vm = makeViewModel(engine: engine, tone: tone)
+        await vm.onAppear()            // denied → .permissionDenied
+        vm.enterToneMode()
+        vm.toggleTone()                // FORK は mic 不要なので再生できる
+        #expect(tone.isPlaying)
+
+        await vm.exitToneMode()
+
+        #expect(tone.stopCallCount == 1)                  // 通常 stop = セッション解放
+        #expect(tone.stopWithoutDeactivatingCallCount == 0)
+        #expect(vm.state == .permissionDenied)
+    }
+
+    /// F2: 再生停止後 (isTonePlaying=false) の exitToneMode でも tone 停止を呼び、
+    /// 直前 toggleTone stop() の遅延 deactivate を世代更新で無効化する (handoff barrier)。
+    @Test
+    func exitToneModeAfterStopStillStopsTone() async {
+        let engine = MockPitchEngine()
+        let tone = MockToneGenerator()
+        let vm = makeViewModel(engine: engine, tone: tone)
+        await vm.onAppear()
+        vm.enterToneMode()
+        vm.toggleTone()                // 再生
+        vm.toggleTone()                // 停止 (isTonePlaying=false)
+        #expect(!vm.isTonePlaying)
+        let stopsBefore = tone.stopCallCount + tone.stopWithoutDeactivatingCallCount
+
+        await vm.exitToneMode()
+
+        // exit 時にも tone 停止 (barrier) が呼ばれ、pending deactivate を無効化する。
+        #expect(tone.stopCallCount + tone.stopWithoutDeactivatingCallCount > stopsBefore)
+        #expect(vm.mode == .tuner)
+    }
+
+    /// F4: firewall を取得プリミティブに集約 — 背景中は startEngine 経路 (retry 等) が
+    /// マイクを再取得しない。
+    @Test
+    func startEngineRespectsBackground() async {
+        let engine = MockPitchEngine()
+        let vm = makeViewModel(engine: engine)
+        await vm.onAppear()
+        #expect(engine.startCallCount == 1)
+
+        await vm.setScenePhaseActive(false)   // 背景化
+        await vm.retry()                       // 背景中の retry
+
+        #expect(engine.startCallCount == 1)    // 再取得しない
+    }
 }
