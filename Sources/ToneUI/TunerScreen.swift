@@ -50,7 +50,7 @@ public struct TunerScreen: View {
             case .active:
                 Task { await model.setScenePhaseActive(true) }
             case .background:
-                Task { await model.setScenePhaseActive(false) }
+                model.setScenePhaseInactive()
             case .inactive:
                 break               // Control Center / バナー / 権限ダイアログ: 進行中の検出を壊さない
             @unknown default:

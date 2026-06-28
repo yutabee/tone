@@ -75,10 +75,12 @@ public final class AudioKitToneGenerator: ToneGenerator {
     }
 
     /// セッションを無効化せず停止する(FORK→TUNER handoff 用)。直後に `AudioKitPitchEngine` が
-    /// `.playAndRecord` でセッションを引き継ぐため、トーン側で deactivate しない
-    /// (8ms fade 後の遅延 deactivate が新セッションを叩くレースを避ける)。冪等。`onStopped` は呼ばない。
+    /// `.playAndRecord` でセッションを引き継ぐため、トーン側で deactivate しない。
+    /// handoff は即時 teardown (useEnvelope:false): 遅延 deactivate Task を残さず、pitch が
+    /// 新セッションを取る前に旧 tone AudioEngine を同期停止して二重 engine 窓を消す。
+    /// 冪等。`onStopped` は呼ばない。
     public func stopWithoutDeactivating() {
-        stopAudioGraph(deactivateSession: false, useEnvelope: true)
+        stopAudioGraph(deactivateSession: false, useEnvelope: false)
         removeNotificationObservers()
     }
 
