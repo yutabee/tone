@@ -115,7 +115,7 @@ struct TunerViewModelToneTests {
         vm.enterToneMode()              // stop (count 1)
         vm.toggleTone()                 // 再生開始
         await vm.exitToneMode()
-        #expect(gen.stopCallCount >= 1)
+        #expect(gen.stopWithoutDeactivatingCallCount >= 1)
         #expect(vm.mode == .tuner)
         #expect(engine.startCallCount == 2)   // onAppear + exit 復帰
         #expect(vm.state == .listening)

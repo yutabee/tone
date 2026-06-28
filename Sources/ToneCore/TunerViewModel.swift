@@ -50,6 +50,9 @@ public final class TunerViewModel {
     /// 進行中の起動試行を識別する世代印。停止 / モード変更 / 再起動で増やし、
     /// backoff から起きた古いループを無効化する(背景化後の再起動・二重起動を防ぐ)。
     private var startGeneration = 0
+    /// 現在 scene が前面(.active)か。`setScenePhaseActive` が更新し、背景復帰の判定に使う。
+    private var sceneActive = true
+    private var hasAppeared = false
 
     public init(
         engine: any PitchEngine,
@@ -78,6 +81,8 @@ public final class TunerViewModel {
     /// `.granted` なら `engine.start()`(成功で `.listening` / 失敗で `.engineError`)、
     /// `.denied` なら `.permissionDenied`。`onReading` の配線もここで行う。
     public func onAppear() async {
+        hasAppeared = true
+
         if let storedReferenceA4 = store.load() {
             updateReferenceA4(storedReferenceA4, shouldSave: false)
         }
@@ -109,6 +114,33 @@ public final class TunerViewModel {
     public func onDisappear() {
         engine.stop()
         startGeneration += 1 // backoff 待機中の起動ループを無効化する(停止後の再起動を防ぐ)。
+        if isTonePlaying {
+            toneGenerator.stop()
+            isTonePlaying = false
+        }
+    }
+
+    /// scenePhase 連動のマイク制御。View は `.active`→`true` / `.background`→`false` を転送し、
+    /// `.inactive`(Control Center / バナー / 権限ダイアログ)は転送しない。
+    public func setScenePhaseActive(_ active: Bool) async {
+        guard active else {
+            setScenePhaseInactive()
+            return
+        }
+        let was = sceneActive
+        sceneActive = true
+        guard hasAppeared, !was, mode == .tuner else { return }
+        await startEngine()
+    }
+
+    /// 背景化 (.background)。停止は同期で即時実行し scene イベントの順序を保証する
+    /// (View が Task で包まず直接呼ぶ → background→active 高速往復での task 順序逆転を防ぐ)。
+    public func setScenePhaseInactive() {
+        let was = sceneActive
+        sceneActive = false
+        guard hasAppeared, was else { return }
+        engine.stop()
+        startGeneration += 1
         if isTonePlaying {
             toneGenerator.stop()
             isTonePlaying = false
@@ -149,11 +181,16 @@ public final class TunerViewModel {
 
     /// チューナーモードへ戻り、保持済みの権限状態に応じて検出を復帰する。
     public func exitToneMode() async {
-        if isTonePlaying {
+        // isTonePlaying に依らず必ず tone を止める: 直前の toggleTone stop() が仕込んだ
+        // 遅延 deactivate を tone 側の世代更新で無効化するため (handoff barrier)。
+        // pitch が引き継げる (granted) ときだけ no-deactivate、引き継げないなら通常 stop() で
+        // セッションを解放し他アプリ音声を復帰させる。
+        if engine.currentPermission == .granted {
+            toneGenerator.stopWithoutDeactivating()
+        } else {
             toneGenerator.stop()
-            isTonePlaying = false
         }
-
+        isTonePlaying = false
         mode = .tuner
         await startEngine()
     }
@@ -238,7 +275,7 @@ public final class TunerViewModel {
     /// 範囲で再試行し、使い切ってから `.engineError` を出す
     /// (scenePhase / ボタンの手動「もう一度」が最終 fallback)。
     private func startEngine() async {
-        guard mode != .tone else { return }
+        guard mode != .tone, sceneActive else { return }
 
         switch engine.currentPermission {
         case .denied:
