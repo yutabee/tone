@@ -16,11 +16,6 @@ public struct TunerScreen: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 120
-    @State private var hasStarted = false
-    /// 背景化(`onDisappear` で検出停止)を経たかどうか。前面復帰時の自動再開を
-    /// 「実際に止めた後」だけに限定し、Control Center / 通知バナー / 権限ダイアログ由来の
-    /// 一時的な `.inactive→.active` では進行中の検出を壊さないため。
-    @State private var wasBackgrounded = false
 
     private let copy = TunerCopy()
     private let silenceTick = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
@@ -47,21 +42,18 @@ public struct TunerScreen: View {
         .sensoryFeedback(trigger: isInTune) { _, now in now ? .success : nil }
         .task {
             await model.onAppear()
-            hasStarted = true
         }
         .onDisappear { model.onDisappear() }
         .onReceive(silenceTick) { _ in model.evaluateSilence() }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
+            case .active:
+                Task { await model.setScenePhaseActive(true) }
             case .background:
-                model.onDisappear()
-                wasBackgrounded = true
-            case .active where hasStarted && wasBackgrounded:
-                // 背景化で停止した後の前面復帰でだけ再開する。retry() は内部で権限を
-                // 再確認するため、設定アプリでの取り消し後も誤って無音起動しない。
-                wasBackgrounded = false
-                Task { await model.retry() }
-            default:
+                Task { await model.setScenePhaseActive(false) }
+            case .inactive:
+                break               // Control Center / バナー / 権限ダイアログ: 進行中の検出を壊さない
+            @unknown default:
                 break
             }
         }

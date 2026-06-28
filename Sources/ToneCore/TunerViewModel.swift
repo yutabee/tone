@@ -52,6 +52,7 @@ public final class TunerViewModel {
     private var startGeneration = 0
     /// 現在 scene が前面(.active)か。`setScenePhaseActive` が更新し、背景復帰の判定に使う。
     private var sceneActive = true
+    private var hasAppeared = false
 
     public init(
         engine: any PitchEngine,
@@ -80,6 +81,8 @@ public final class TunerViewModel {
     /// `.granted` なら `engine.start()`(成功で `.listening` / 失敗で `.engineError`)、
     /// `.denied` なら `.permissionDenied`。`onReading` の配線もここで行う。
     public func onAppear() async {
+        hasAppeared = true
+
         if let storedReferenceA4 = store.load() {
             updateReferenceA4(storedReferenceA4, shouldSave: false)
         }
@@ -98,7 +101,9 @@ public final class TunerViewModel {
 
         switch await engine.requestPermission() {
         case .granted:
-            await startEngine()
+            if sceneActive {
+                await startEngine()
+            }
         case .denied:
             state = .permissionDenied
         case .notDetermined:
@@ -119,10 +124,23 @@ public final class TunerViewModel {
 
     /// scenePhase 連動のマイク制御。View は `.active`→`true` / `.background`→`false` を転送し、
     /// `.inactive`(Control Center / バナー / 権限ダイアログ)は転送しない。
-    /// TODO(codex): `false→true` 遷移かつ `hasAppeared && mode == .tuner` のときだけ
-    /// `await startEngine()`、`true→false` 遷移で停止する実装に置き換える。
     public func setScenePhaseActive(_ active: Bool) async {
+        let was = sceneActive
         sceneActive = active
+        guard hasAppeared else { return }
+        if active && !was {
+            // 背景復帰: tuner モードのときだけ再開。startEngine が権限を再確認する。
+            guard mode == .tuner else { return }
+            await startEngine()
+        } else if !active && was {
+            // 背景化: 検出を止め、再生中トーンも止める (復帰時に自動再生しない)。
+            engine.stop()
+            startGeneration += 1
+            if isTonePlaying {
+                toneGenerator.stop()
+                isTonePlaying = false
+            }
+        }
     }
 
     /// 基準ピッチ変更: `415...466` にクランプ → `store.save` → `processor` / `converter` を再構築し
@@ -160,7 +178,7 @@ public final class TunerViewModel {
     /// チューナーモードへ戻り、保持済みの権限状態に応じて検出を復帰する。
     public func exitToneMode() async {
         if isTonePlaying {
-            toneGenerator.stop()
+            toneGenerator.stopWithoutDeactivating()
             isTonePlaying = false
         }
 

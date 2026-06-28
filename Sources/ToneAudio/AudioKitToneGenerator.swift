@@ -74,10 +74,12 @@ public final class AudioKitToneGenerator: ToneGenerator {
         removeNotificationObservers()
     }
 
-    /// セッションを無効化せず停止する(FORK→TUNER handoff 用)。TODO(codex): 実装で
-    /// `stopAudioGraph(deactivateSession: false, useEnvelope: true)` に置き換える。
+    /// セッションを無効化せず停止する(FORK→TUNER handoff 用)。直後に `AudioKitPitchEngine` が
+    /// `.playAndRecord` でセッションを引き継ぐため、トーン側で deactivate しない
+    /// (8ms fade 後の遅延 deactivate が新セッションを叩くレースを避ける)。冪等。`onStopped` は呼ばない。
     public func stopWithoutDeactivating() {
-        stop()
+        stopAudioGraph(deactivateSession: false, useEnvelope: true)
+        removeNotificationObservers()
     }
 
     private func startAudioGraph(frequency: Double, timbre: ToneTimbre) throws {
